@@ -1,4 +1,4 @@
-export const formatCOP = (value) => {
+export const formatCOP = (value:any) => {
   if (isNaN(value)) return "$ 0";
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
