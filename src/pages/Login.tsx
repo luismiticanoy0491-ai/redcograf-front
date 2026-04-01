@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API from '../api/api'; // Suponiendo que API es una instancia configurada de axios
+import API from '../api/api'; 
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -26,40 +26,35 @@ const Login: React.FC = () => {
 
     try {
       if (mode === 'register') {
-        // Flujo de Registro
         await API.post('/auth/registro', formData);
         alert('🎉 Registro exitoso. ¡Ahora puedes iniciar sesión!');
-        setMode('login'); // Cambiar a vista de login automáticamente
+        setMode('login');
         setFormData({ ...formData, password: '' });
       } else if (mode === 'recover') {
-        // Flujo de Recuperación
         await API.post('/auth/recuperar', {
           username: formData.username,
           correo: formData.correo,
           newPassword: formData.password
         });
-        alert('🔑 Contraseña restablecida correctamente. Inicia sesión con tu nueva contraseña.');
+        alert('🔑 Contraseña restablecida correctamente.');
         setMode('login');
         setFormData({ ...formData, password: '' });
       } else {
-        // Flujo de Login
         const response = await API.post('/auth/login', {
           username: formData.username,
           password: formData.password
         });
 
-        // Guardar token y rol
         localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('adminRole', response.data.role);
         localStorage.setItem('adminUser', response.data.username);
 
-        // Redirigir al terminal POS General
         navigate('/');
       }
     } catch (err: any) {
       setError(
         err.response?.data?.error ||
-        'Ocurrió un error inesperado al conectar con el servidor.'
+        'Error al conectar con el servidor.'
       );
     } finally {
       setLoading(false);
@@ -67,171 +62,139 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box card focus-glow fade-in">
-        <div className="login-header">
-          <span className="logo-icon" style={{ fontSize: '3rem', display: 'block', textAlign: 'center' }}>📦</span>
-          <h1 style={{ textAlign: 'center', margin: '10px 0', color: '#1e293b' }}>
-            IMPULSA POS
-          </h1>
-          <p style={{ textAlign: 'center', color: '#64748b' }}>
-            {mode === 'register' ? 'Crea una cuenta para empezar' : mode === 'recover' ? 'Restablece tu contraseña de forma segura' : 'Inicia sesión para acceder al sistema'}
-          </p>
-        </div>
-
-        {error && (
-          <div className="alert-error" style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontWeight: 'bold' }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group" style={{ marginBottom: '15px' }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Usuario</label>
-            <input
-              type="text"
-              name="username"
-              placeholder="Ej. admin_local"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              className="styled-input"
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-            />
-          </div>
-
-          {(mode === 'register' || mode === 'recover') && (
-            <div className="form-group" style={{ marginBottom: '15px' }}>
-              <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                {mode === 'recover' ? 'Correo de Recuperación' : 'Correo Electrónico (Opcional)'}
-              </label>
-              <input
-                type="email"
-                name="correo"
-                placeholder="tucorreo@empresa.com"
-                value={formData.correo}
-                onChange={handleChange}
-                required={mode === 'recover'}
-                className="styled-input"
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-              />
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-50 overflow-y-auto p-4">
+      <div className="w-full max-w-sm animate-in fade-in zoom-in duration-500 my-auto">
+        <div className="bg-white rounded-[32px] shadow-2xl shadow-indigo-100/50 border border-slate-100 overflow-hidden">
+          <div className="p-6 md:p-8 pb-4">
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-3 transform hover:rotate-12 transition-transform duration-300">
+                <span className="text-2xl text-white">📦</span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-slate-900 mb-1">
+                IMPULSA POS
+              </h1>
+              <p className="text-slate-400 text-center text-[10px] font-black uppercase tracking-widest leading-loose">
+                {mode === 'register' ? 'Crea una cuenta' : mode === 'recover' ? 'Recupera acceso' : 'Control de Punto de Venta'}
+              </p>
             </div>
-          )}
 
-          <div className="form-group" style={{ marginBottom: '20px' }}>
-            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-              {mode === 'recover' ? 'Nueva Contraseña' : 'Contraseña'}
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="styled-input"
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', paddingRight: '40px' }}
-              />
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 animate-in slide-in-from-top-2 duration-300">
+                <span className="text-red-500 text-xs">⚠️</span>
+                <p className="text-[11px] font-bold text-red-600 leading-tight">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuario</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    name="username"
+                    placeholder="Tu usuario"
+                    value={formData.username}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-100/30 focus:border-indigo-500 outline-none transition-all duration-300 placeholder:text-slate-300 font-bold text-sm"
+                  />
+                </div>
+              </div>
+
+              {(mode === 'register' || mode === 'recover') && (
+                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    name="correo"
+                    placeholder="email@empresa.com"
+                    value={formData.correo}
+                    onChange={handleChange}
+                    required={mode === 'recover'}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-100/30 focus:border-indigo-500 outline-none transition-all duration-300 placeholder:text-slate-300 font-bold text-sm lowercase"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  {mode === 'recover' ? 'Nueva Contraseña' : 'Contraseña'}
+                </label>
+                <div className="relative group">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-100/30 focus:border-indigo-500 outline-none transition-all duration-300 placeholder:text-slate-300 font-bold text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors"
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-indigo-600 text-white font-black rounded-xl shadow-lg shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-50 text-xs uppercase tracking-widest"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <span>{mode === 'register' ? 'Registrarse' : mode === 'recover' ? 'Restablecer' : 'Entrar al Sistema'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-6 flex flex-col items-center gap-3">
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('recover'); setError(null); }}
+                  className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-tight"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1.2rem',
-                  color: '#64748b'
-                }}
-                title={showPassword ? "Ocultar Contraseña" : "Mostrar Contraseña"}
+                onClick={() => { setMode(mode === 'register' || mode === 'recover' ? 'login' : 'register'); setError(null); }}
+                className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-widest"
               >
-                {showPassword ? "🙈" : "👁️"}
+                {mode === 'login' ? 'Crear Cuenta Local' : 'Volver al Login'}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-              color: 'white',
-              fontWeight: 'bold',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '1.1rem'
-            }}
-          >
-            {loading ? 'Procesando...' : (mode === 'register' ? '✅ Registrarse' : mode === 'recover' ? '🔄 Restablecer' : '🚀 Iniciar Sesión')}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {mode === 'login' && (
-            <button
-              type="button"
-              onClick={() => { setMode('recover'); setError(null); }}
-              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              ¿Olvidaste tu contraseña?
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => { setMode(mode === 'register' || mode === 'recover' ? 'login' : 'register'); setError(null); }}
-            style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            {mode === 'login' ? 'Crear Cajero Local' : 'Volver a Iniciar Sesión'}
-          </button>
-
-          <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-            <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.9rem' }}>¿Aún no usas nuestra plataforma?</p>
-            <button
-              type="button"
-              onClick={() => navigate('/registro-saas')}
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.4)' }}
-            >
-              🚀 Registra tu Negocio (7 Días Gratis)
-            </button>
+          <div className="bg-slate-50 p-6 md:p-8 border-t border-slate-100">
+            <div className="text-center space-y-4">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">¿Nuevo negocio? Usa la nube.</p>
+              <button
+                type="button"
+                onClick={() => navigate('/registro-saas')}
+                className="w-full py-3 bg-white border border-slate-200 text-slate-900 font-black rounded-xl shadow-sm hover:bg-slate-50 hover:-translate-y-0.5 active:translate-y-0 transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+              >
+                🚀 Registrar Empresa <span className="bg-emerald-100 text-emerald-700 text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse uppercase">Gratis</span>
+              </button>
+            </div>
           </div>
         </div>
+        <p className="mt-6 text-center text-slate-300 text-[9px] font-black uppercase tracking-[0.3em]">
+          &copy; 2026 IMPULSA POS
+        </p>
       </div>
-
-      <style>{`
-        .login-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          width: 100vw;
-          background: #f8fafc;
-          position: fixed;
-          top: 0;
-          left: 0;
-          z-index: 9999;
-        }
-        .login-box {
-          background: white;
-          padding: 40px;
-          border-radius: 16px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-          width: 100%;
-          max-width: 450px;
-        }
-        .styled-input:focus {
-          outline: none;
-          border-color: #4f46e5 !important;
-          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-        }
-      `}</style>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import API from "../api/api";
 import { formatCOP } from "../utils/format";
 
 function VentasMayoristas() {
-  const [productos, setProductos] = useState([]);
+  const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   
@@ -16,7 +16,7 @@ function VentasMayoristas() {
     const savedActiveTab = localStorage.getItem("posMayoristaActiveTab");
     return savedActiveTab ? JSON.parse(savedActiveTab) : 1;
   });
-  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  const activeTab = tabs.find((t: any) => t.id === activeTabId) || tabs[0];
 
   useEffect(() => {
     localStorage.setItem("posMayoristaTabs", JSON.stringify(tabs));
@@ -30,23 +30,20 @@ function VentasMayoristas() {
   const clienteId = activeTab.clienteId;
   const clienteSearch = activeTab.clienteSearch;
 
-  const updateActiveTab = (updates) => {
-    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, ...updates } : t));
+  const updateActiveTab = (updates: any) => {
+    setTabs((prev: any[]) => prev.map(t => t.id === activeTabId ? { ...t, ...updates } : t));
   };
 
-  const setCarrito = (newCarrito) => updateActiveTab({ carrito: newCarrito });
-  const setClienteId = (newId) => updateActiveTab({ clienteId: newId });
-  const setClienteSearch = (newSearch) => updateActiveTab({ clienteSearch: newSearch });
+  const setCarrito = (newCarrito: any[]) => updateActiveTab({ carrito: newCarrito });
+  const setClienteId = (newId: string) => updateActiveTab({ clienteId: newId });
+  const setClienteSearch = (newSearch: string) => updateActiveTab({ clienteSearch: newSearch });
   const [showCheckout, setShowCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [metodoPago, setMetodoPago] = useState("Efectivo");
   const [pagoCliente, setPagoCliente] = useState("");
   
-  // Mayorista States
-  // Se maneja porcentaje de descuento de manera individual en cada item del carrito
-  
-  const [cajeros, setCajeros] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  const [cajeros, setCajeros] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [empresa, setEmpresa] = useState<any>({});
   const [cajeroId, setCajeroId] = useState(() => {
     return localStorage.getItem("posCajeroId") || "";
@@ -63,15 +60,15 @@ function VentasMayoristas() {
 
   // Tab Handlers
   const nuevaTab = () => {
-    const newId = Math.max(...tabs.map(t => t.id), 0) + 1;
+    const newId = Math.max(...tabs.map((t: any) => t.id), 0) + 1;
     setTabs([...tabs, { id: newId, carrito: [], clienteId: "1", clienteSearch: "" }]);
     setActiveTabId(newId);
   };
 
-  const cerrarTab = (id) => {
+  const cerrarTab = (id: number) => {
     if (tabs.length === 1) return;
-    if (window.confirm("¿Seguro que deseas descartar este lote mayorista en espera?")) {
-      const newTabs = tabs.filter(t => t.id !== id);
+    if (window.confirm("¿Descartar este lote mayorista?")) {
+      const newTabs = tabs.filter((t: any) => t.id !== id);
       setTabs(newTabs);
       if (activeTabId === id) {
         setActiveTabId(newTabs[0].id);
@@ -103,65 +100,60 @@ function VentasMayoristas() {
     (p.referencia && p.referencia.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const agregarAlCarrito = (producto) => {
-    // Se permite vender en negativo pero notificando al usuario
-    const exist = carrito.find(x => x.id === producto.id);
+  const agregarAlCarrito = (producto: any) => {
+    const exist = carrito.find((x: any) => x.id === producto.id);
     const newQty = exist ? exist.qty + 1 : 1;
 
-    // Solo alerta visual en tabla, sin bloqueos
     if (exist) {
-      setCarrito(carrito.map(x => x.id === producto.id ? { ...exist, qty: newQty } : x));
+      setCarrito(carrito.map((x: any) => x.id === producto.id ? { ...exist, qty: newQty } : x));
     } else {
       setCarrito([...carrito, { ...producto, qty: 1, descuento: 30 }]);
     }
   };
 
-  const removerDelCarrito = (producto) => {
-    const exist = carrito.find(x => x.id === producto.id);
+  const removerDelCarrito = (producto: any) => {
+    const exist = carrito.find((x: any) => x.id === producto.id);
     if (exist.qty === 1) {
-      setCarrito(carrito.filter(x => x.id !== producto.id));
+      setCarrito(carrito.filter((x: any) => x.id !== producto.id));
     } else {
-      setCarrito(carrito.map(x => x.id === producto.id ? { ...exist, qty: exist.qty - 1 } : x));
+      setCarrito(carrito.map((x: any) => x.id === producto.id ? { ...exist, qty: exist.qty - 1 } : x));
     }
   };
 
-  const eliminarDelCarrito = (producto) => {
-    setCarrito(carrito.filter(x => x.id !== producto.id));
+  const eliminarDelCarrito = (producto: any) => {
+    setCarrito(carrito.filter((x: any) => x.id !== producto.id));
   };
 
   const vaciarCarrito = () => {
-    if (window.confirm("¿Seguro que deseas vaciar el carrito actual?")) setCarrito([]);
+    if (window.confirm("¿Vaciar despacho actual?")) setCarrito([]);
   };
 
-  const handleSearchKeyPress = (e) => {
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && search.trim() !== '') {
       e.preventDefault();
-      // Buscar coincidencia exacta por Referencia/SKU
       const matchedProduct = productos.find(p => 
         p.referencia && p.referencia.trim().toLowerCase() === search.trim().toLowerCase()
       );
       
       if (matchedProduct) {
         agregarAlCarrito(matchedProduct);
-        setSearch(""); // Limpiar la barra para el siguiente escaneo
+        setSearch("");
       } else {
-        // En caso de que el código de barras o código ingresado no exista
         setScanError(true);
         setTimeout(() => setScanError(false), 800);
       }
     }
   };
 
-  const handleDescuentoChange = (id, valor) => {
+  const handleDescuentoChange = (id: number, valor: string) => {
     let desc = parseFloat(valor) || 0;
     if (desc < 0) desc = 0;
     if (desc > 100) desc = 100;
-    setCarrito(carrito.map(x => x.id === id ? { ...x, descuento: desc } : x));
+    setCarrito(carrito.map((x: any) => x.id === id ? { ...x, descuento: desc } : x));
   };
 
-  // Wholesale Math
-  const subtotalOriginal = carrito.reduce((a, c) => a + c.precio_venta * c.qty, 0);
-  const granTotal = carrito.reduce((a, c) => a + (c.precio_venta * (1 - (c.descuento || 0) / 100)) * c.qty, 0);
+  const subtotalOriginal = carrito.reduce((a: number, c: any) => a + c.precio_venta * c.qty, 0);
+  const granTotal = carrito.reduce((a: number, c: any) => a + (c.precio_venta * (1 - (c.descuento || 0) / 100)) * c.qty, 0);
   const valorDescuento = subtotalOriginal - granTotal;
 
   const cashPaga = parseFloat(pagoCliente) || 0;
@@ -169,15 +161,14 @@ function VentasMayoristas() {
 
   const confirmarVenta = async () => {
     if (carrito.length === 0) return;
-    if (!cajeroId) return alert("❌ Seguridad: Selecciona tu Cajero en Turno antes de operar la caja.");
+    if (!cajeroId) return alert("Selecciona cajero de despacho.");
     if (metodoPago === "Efectivo" && cashPaga < granTotal) {
-      return alert("El efectivo ingresado es insuficiente para cubrir el total descontado de la compra.");
+      return alert("Efectivo insuficiente.");
     }
 
     setIsProcessing(true);
     try {
-      // Aplicar el descuento dinámicamente individualmente
-      const discountedCart = carrito.map(item => ({
+      const discountedCart = carrito.map((item: any) => ({
         ...item,
         precio_venta: item.precio_venta * (1 - (item.descuento || 0) / 100)
       }));
@@ -188,7 +179,7 @@ function VentasMayoristas() {
         efectivoEntregado: cashPaga,
         vuelto: vuelto > 0 ? vuelto : 0,
         cajeroId: parseInt(cajeroId),
-        clienteId: clienteId ? parseInt(clienteId) : 1, // Default 1 (Cliente General)
+        clienteId: clienteId ? parseInt(clienteId) : 1,
         total: granTotal
       });
       setFacturaIdImpresion(response.data.factura_id);
@@ -196,7 +187,7 @@ function VentasMayoristas() {
       fetchInventory(); 
     } catch (err) {
       console.error(err);
-      alert("Error procesando la venta mayorista.");
+      alert("Error procesando despacho.");
     } finally {
       setIsProcessing(false);
     }
@@ -204,399 +195,239 @@ function VentasMayoristas() {
 
   const imprimirYTerminar = () => {
     window.print();
-    // Ya no limpiamos automáticamente para asegurar que el navegador tenga tiempo infinito de capturar el ticket.
   };
 
-  const clienteSeleccionado = clientes.find(c => c.id === parseInt(clienteId)) || { nombre: "Cliente Casual de Contado" };
+  const clienteSeleccionado = clientes.find(c => c.id === parseInt(clienteId)) || { nombre: "Distribuidor Casual" };
   const cajeroSeleccionado = cajeros.find(c => c.id === parseInt(cajeroId)) || { nombre: "Cajero Principal" };
 
   return (
-    <div className="pos-layout fade-in">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] gap-6 overflow-hidden animate-in fade-in duration-500">
       
-      {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
-      <div className="pos-catalog no-print">
-        <div className="catalog-header" style={{backgroundColor: '#1e293b', color: 'white'}}>
-          <h2 style={{color: '#38bdf8'}}>CAJA REGISTRADORA MAYORISTA</h2>
-          <p style={{fontSize: '0.9rem', marginBottom: '0.5rem'}}>Módulo de distribución, aplica descuentos por volumen individualmente a cada producto.</p>
-          <input 
-            type="text" 
-            placeholder="🔍 Escanea Referencia (Enter) o busca por nombre..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            onKeyDown={handleSearchKeyPress}
-            className="pos-search" 
-            style={scanError ? { border: '3px solid #ef4444', backgroundColor: '#fef2f2', transition: 'all 0.2s' } : { transition: 'all 0.2s' }}
-            autoFocus
-          />
+      {/* LEFT: Wholesale Catalog */}
+      <div className="flex-1 flex flex-col bg-slate-900 rounded-[48px] border border-slate-800 shadow-2xl overflow-hidden no-print">
+        <div className="p-10 border-b border-slate-800 space-y-6 bg-slate-900/50 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+                <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                    <span className="text-sky-400">🚛</span> Distribución Mayorista
+                </h2>
+                <p className="text-slate-500 text-xs font-black uppercase tracking-[0.4em]">Fulfillment & Bulk Sales</p>
+            </div>
+            <div className="px-6 py-2 bg-sky-500/10 text-sky-400 text-[10px] font-black rounded-full border border-sky-500/20 uppercase tracking-widest animate-pulse">
+                Modo Mayorista Activo
+            </div>
+          </div>
+          <div className="relative group">
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-sky-400 transition-colors text-xl">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Escanea SKU o localiza ítems para despacho..." 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              onKeyDown={handleSearchKeyPress}
+              className={`w-full pl-16 pr-8 py-5 bg-slate-800/40 border rounded-[32px] outline-none transition-all duration-300 font-bold text-white placeholder:text-slate-600 ${
+                scanError ? 'border-red-500 ring-4 ring-red-500/20 bg-red-500/10' : 'border-slate-700 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 focus:bg-slate-800'
+              }`}
+              autoFocus
+            />
+          </div>
         </div>
 
-        {loading ? (
-          <p className="text-muted" style={{padding: '2rem'}}>Cargando catálogo mayorista en vivo...</p>
-        ) : (
-          <div className="pos-grid">
-            {filteredProducts.map(p => (
-              <div 
-                className={`card pos-card ${p.cantidad <= 0 ? 'out-of-stock' : ''}`} 
-                key={p.id} 
-                onClick={() => agregarAlCarrito(p)}
-                style={{borderColor: '#38bdf8'}}
-              >
-                <div>
-                  <span className="product-name">{p.nombre}</span>
-                  {p.referencia && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.referencia}</span>}
-                </div>
-                <div style={{ marginTop: '0.8rem' }}>
-                  <div className="product-price">{formatCOP(p.precio_venta)}</div>
-                  <span className={`badge ${p.cantidad <= 0 ? 'agotado' : ''}`}>
-                    Stock Venta: {p.cantidad}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto p-10 scrollbar-none bg-slate-950/20">
+          {loading ? (
+             <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="w-12 h-12 border-4 border-slate-800 border-t-sky-500 rounded-full animate-spin"></div>
+                <p className="text-slate-600 font-black uppercase tracking-widest text-xs">Sincronizando Almacén Central...</p>
+             </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+              {filteredProducts.map(p => (
+                <button 
+                  key={p.id}
+                  onClick={() => agregarAlCarrito(p)}
+                  disabled={p.cantidad <= 0}
+                  className="group relative flex flex-col p-6 bg-slate-800/20 rounded-[40px] border border-slate-800 text-left transition-all duration-500 hover:bg-slate-800 hover:border-sky-500/50 hover:-translate-y-2 active:scale-95 disabled:opacity-30 disabled:grayscale disabled:translate-y-0"
+                >
+                  <div className="mb-4">
+                    <h3 className="text-sm font-black text-slate-100 line-clamp-2 leading-tight min-h-[2.5rem] tracking-tight group-hover:text-sky-300 transition-colors">{p.nombre}</h3>
+                    {p.referencia && <p className="text-[10px] font-black text-sky-500 uppercase mt-1 tracking-widest opacity-60">{p.referencia}</p>}
+                  </div>
+                  <div className="mt-auto space-y-3">
+                    <div className="text-xl font-black text-white">{formatCOP(p.precio_venta)}</div>
+                    <div className="flex items-center justify-between border-t border-slate-700/50 pt-3">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">En Rack</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
+                             p.cantidad <= 0 ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-300'
+                        }`}>{p.cantidad}</span>
+                    </div>
+                  </div>
+                  <div className="absolute right-4 top-4 w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center text-white scale-0 group-hover:scale-100 transition-transform duration-300 shadow-lg shadow-sky-500/40 font-black">+</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* SECCIÓN DERECHA: CARRITO / TICKET DE CAJA */}
-      <div className="pos-cart-panel printable-receipt" style={{borderLeft: '4px solid #38bdf8'}}>
+      {/* RIGHT: Wholesale Cart */}
+      <div className="w-full lg:w-[480px] bg-white rounded-[48px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden printable-receipt">
         
-        {/* Encabezado del Ticket */}
-        <div className="receipt-header print-only" style={{ marginBottom: '1rem', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>{empresa.nombre_empresa || "MERCADO PRO"}</h2>
-          <h4 style={{ margin: '0.2rem 0' }}>COMPRA MAYORISTA EXCLUSIVA</h4>
-          {empresa.nit && <p style={{ fontSize: '0.9rem', margin: '0' }}>NIT: {empresa.nit}</p>}
-          <p style={{ fontSize: '0.9rem', margin: '0', fontWeight: 'bold' }}>No responsable de IVA</p>
-          {empresa.direccion && <p style={{ fontSize: '0.85rem', margin: '0' }}>Dir: {empresa.direccion}</p>}
-          <p style={{ fontSize: '0.85rem', margin: '0' }}>
-             {empresa.telefono && <span>Cel: {empresa.telefono}</span>}
-             {empresa.telefono && empresa.correo && <span> | </span>}
-             {empresa.correo && <span>Correo: {empresa.correo}</span>}
-          </p>
-          <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-          <p style={{ fontSize: '0.9rem', margin: '0' }}>Ticket No. {facturaIdImpresion || Math.floor(Math.random() * 900000) + 100000}</p>
-          <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-        </div>
-
-        <h3 className="no-print" style={{ borderBottom: '1px solid #ddd', paddingBottom: '1rem', marginBottom: '1rem', color: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>📦 Lote Mayorista</span>
-        </h3>
-
-        {/* PESTAÑAS (TABS) */}
-        <div className="pos-tabs no-print" style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-          {tabs.map((tab, idx) => (
-            <div 
-              key={tab.id} 
-              onClick={() => setActiveTabId(tab.id)}
-              style={{
-                padding: '0.35rem 0.6rem', 
-                backgroundColor: activeTabId === tab.id ? '#0ea5e9' : '#f1f5f9', 
-                color: activeTabId === tab.id ? 'white' : '#475569',
-                borderRadius: '6px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                fontWeight: 'bold',
-                fontSize: '0.85rem',
-                whiteSpace: 'nowrap',
-                border: activeTabId === tab.id ? 'none' : '1px solid #cbd5e1',
-                boxShadow: activeTabId === tab.id ? '0 2px 4px -1px rgba(14, 165, 233, 0.2)' : 'none',
-                transition: 'all 0.2s'
-              }}
-            >
-              Lote #{idx + 1}
-              {tabs.length > 1 && (
-                <span 
-                  onClick={(e) => { e.stopPropagation(); cerrarTab(tab.id); }}
-                  title="Descartar lote"
-                  style={{ marginLeft: '0.4rem', cursor: 'pointer', color: activeTabId === tab.id ? '#bae6fd' : '#94a3b8', fontSize: '1rem', lineHeight: '1' }}
-                >
-                  &times;
-                </span>
-              )}
+        {/* Receipt Header (Print Only) */}
+        <div className="hidden print:block text-center p-10 space-y-2">
+            <h2 className="text-2xl font-black">{empresa.nombre_empresa || "MI EMPRESA"}</h2>
+            <p className="text-sm font-black uppercase tracking-widest text-slate-500 mt-2">Facturación Mayorista</p>
+            {empresa.nit && <p className="text-xs font-bold mt-4">NIT: {empresa.nit}</p>}
+            <div className="py-4 border-y border-dashed border-slate-300 my-6 uppercase font-black text-sm tracking-widest">
+                Lote Mayorista No. {facturaIdImpresion || '000000'}
             </div>
-          ))}
-          <button 
-            onClick={nuevaTab}
-            title="Nuevo mayorista simultáneo"
-            style={{
-              padding: '0.35rem 0.6rem', 
-              backgroundColor: '#10b981', 
-              color: 'white',
-              borderRadius: '6px', 
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 4px -1px rgba(16, 185, 129, 0.2)'
-            }}
-          >
-            + Nuevo Lote
-          </button>
-        </div>
-        
-        <div className="cart-setup no-print" style={{marginBottom: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem'}}>
-          <div>
-            <label style={{fontSize: '0.75rem', fontWeight: 'bold', color: '#475569'}}>🏢 Cliente / Distribuidor:</label>
-            <input 
-              list="lista-clientes-mayoristas"
-              type="text" 
-              placeholder="🔍 Buscar distribuidor..." 
-              value={clienteSearch} 
-              onChange={e => {
-                const val = e.target.value;
-                setClienteSearch(val);
-                
-                if (val === "Cliente Casual de Contado") {
-                  setClienteId("1");
-                  return;
-                }
-                
-                const match = clientes.find(c => {
-                  const str = `${c.nombre} ${c.documento ? `(${c.documento})` : ''}`;
-                  return str === val;
-                });
-                
-                if (match) {
-                  setClienteId(match.id.toString());
-                } else if (val === "") {
-                  setClienteId("1");
-                } else {
-                  setClienteId("");
-                }
-              }} 
-              style={{width: '100%', padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '0.15rem', fontSize: '0.85rem'}}
-            />
-            <datalist id="lista-clientes-mayoristas">
-              <option value="Cliente Casual de Contado" />
-              {clientes.filter(c => c.id !== 1).map(c => (
-                <option key={c.id} value={`${c.nombre} ${c.documento ? `(${c.documento})` : ''}`} />
-              ))}
-            </datalist>
-
-            {/* Indicador visual del cliente seleccionado */}
-            {clienteId && clienteId !== "1" && clienteId !== "" && (
-              <div style={{marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#e0f2fe', borderRadius: '4px', fontSize: '0.85rem', color: '#0369a1'}}>
-                ✅ Seleccionado: <strong>{clienteSeleccionado.nombre}</strong>
-              </div>
-            )}
-            
-            {/* Si no se encuentra lo escrito */}
-            {clienteId === "" && clienteSearch !== "" && (
-              <div style={{marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#fef3c7', borderRadius: '4px', fontSize: '0.85rem', color: '#92400e'}}>
-                ⚠️ Mayorista no encontrado. Regístralo o bórralo para cobro Casual.
-              </div>
-            )}
-          </div>
-          <div>
-            <label style={{fontSize: '0.75rem', fontWeight: 'bold', color: '#475569'}}>🧑‍💼 Cajero en Turno:</label>
-            <select value={cajeroId} onChange={e => setCajeroId(e.target.value)} style={{width: '100%', padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', marginTop: '0.15rem', fontSize: '0.85rem'}}>
-              <option value="">-- Seleccionar Cajero --</option>
-              {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </div>
         </div>
 
-        <div className="cart-items-container" style={{ padding: '0.5rem 1rem' }}>
-          {carrito.length === 0 ? (
-            <p className="empty-state no-print">No has escaneado artículos para la venta masiva.</p>
-          ) : (
-            carrito.map((item) => (
-              <div key={item.id} className="cart-item" style={item.qty > item.cantidad ? { backgroundColor: '#fee2e2', borderColor: '#ef4444' } : {}}>
-                <div className="cart-item-details">
-                  <span style={{ fontWeight: 'normal', fontSize: '0.85rem', color: '#0f172a' }}>
-                    {item.nombre}
-                    {item.qty > item.cantidad && <span style={{ color: '#dc2626', fontSize: '0.7rem', marginLeft: '6px', fontWeight: 'bold' }}>⚠️</span>}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: '#666', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
-                    {item.referencia ? <span style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.1rem 0.25rem', borderRadius: '4px', fontSize: '0.65rem', lineHeight: '1' }}>REF: {item.referencia}</span> : null}
-                    <span>{formatCOP(item.precio_venta)} c/u base</span>
-                  </span>
-                </div>
-                
-                <div className="cart-item-controls no-print">
-                  <button onClick={() => removerDelCarrito(item)}>-</button>
-                  <span>{item.qty}</span>
-                  <button onClick={() => agregarAlCarrito(item)}>+</button>
-                </div>
+        {/* Tab & Customer Section */}
+        <div className="p-8 bg-slate-50 border-b border-slate-100 no-print space-y-8">
+            <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-900 tracking-tight text-lg flex items-center gap-2">
+                    <span className="w-2 h-6 bg-slate-950 rounded-full"></span> Lote de Distribución
+                </h3>
+                <button onClick={nuevaTab} className="bg-slate-950 text-white w-10 h-10 rounded-2xl hover:bg-slate-800 transition-all font-black text-xl shadow-xl shadow-slate-200">+</button>
+            </div>
 
-                <div className="no-print" style={{marginLeft: '0.5rem'}}>
-                  <input 
-                    type="number" 
-                    min="0" max="100" 
-                    value={item.descuento || 0} 
-                    onChange={e => handleDescuentoChange(item.id, e.target.value)} 
-                    style={{width: '45px', padding: '0.15rem', border: '1px solid #cbd5e1', borderRadius: '4px', textAlign: 'center', fontSize: '0.85rem'}}
-                    title="% Descuento"
-                  />
-                  <span style={{fontSize: '0.7rem', color: '#64748b', fontWeight: 'normal', marginLeft: '2px'}}>% OFF</span>
-                </div>
-                
-                <span className="print-only">x{item.qty} (-{item.descuento || 0}%)</span>
-
-                <div className="cart-item-total" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 'auto' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>{formatCOP((item.precio_venta * (1 - (item.descuento || 0)/100)) * item.qty)}</span>
-                    <button 
-                      className="no-print" 
-                      onClick={() => eliminarDelCarrito(item)} 
-                      title="Quitar todo"
-                      style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', cursor: 'pointer', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                {tabs.map((tab: any, idx: number) => (
+                    <div 
+                        key={tab.id} 
+                        onClick={() => setActiveTabId(tab.id)}
+                        className={`relative px-6 py-3 rounded-2xl text-xs font-black whitespace-nowrap cursor-pointer transition-all border flex items-center gap-2 ${
+                        activeTabId === tab.id 
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xl" 
+                            : "bg-white text-slate-400 border-slate-200 hover:bg-slate-100"
+                        }`}
                     >
-                      ✖
-                    </button>
+                        #0{(idx + 1)}
+                        {tabs.length > 1 && (
+                            <button onClick={(e) => { e.stopPropagation(); cerrarTab(tab.id); }} className="ml-2 opacity-30 hover:opacity-100">&times;</button>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <div className="space-y-4">
+                <div className="relative">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Distribuidor / Cliente Especial</label>
+                    <input 
+                        list="lista-clientes-m"
+                        type="text" 
+                        placeholder="Vincular Comerciante..." 
+                        value={clienteSearch} 
+                        onChange={e => {
+                            const val = e.target.value;
+                            setClienteSearch(val);
+                            if (val === "Distribuidor Casual") { setClienteId("1"); return; }
+                            const match = clientes.find(c => `${c.nombre} ${c.documento ? `(${c.documento})` : ''}` === val);
+                            if (match) setClienteId(match.id.toString());
+                            else if (val === "") setClienteId("1");
+                            else setClienteId("");
+                        }} 
+                        className="w-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-slate-100 outline-none"
+                    />
+                    <datalist id="lista-clientes-m">
+                        <option value="Distribuidor Casual" />
+                        {clientes.filter(c => c.id !== 1).map(c => (
+                            <option key={c.id} value={`${c.nombre} ${c.documento ? `(${c.documento})` : ''}`} />
+                        ))}
+                    </datalist>
+                </div>
+                <div className="relative">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Persona a cargo del Despacho</label>
+                    <select value={cajeroId} onChange={e => setCajeroId(e.target.value)} className="w-full px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-slate-100 outline-none appearance-none">
+                        <option value="">-- Autenticar Responsable --</option>
+                        {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        {/* Cart Items Area */}
+        <div className="flex-1 overflow-y-auto p-8 space-y-4 bg-white scrollbar-none">
+          {carrito.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center opacity-20">
+              <div className="text-7xl mb-6">📦</div>
+              <p className="font-black uppercase tracking-widest text-[10px]">Sin ítems en despacho</p>
+            </div>
+          ) : (
+            carrito.map((item: any) => (
+              <div key={item.id} className={`group flex flex-col p-6 rounded-[32px] border transition-all duration-300 ${
+                item.qty > item.cantidad ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100 hover:border-slate-300'
+              }`}>
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[13px] font-black text-slate-900 truncate uppercase tracking-tight">{item.nombre}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                       <span className="text-slate-400 font-black text-[10px]">{formatCOP(item.precio_venta)} unit.</span>
+                       <span className="text-[8px] font-black bg-slate-900 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">BULK</span>
+                    </div>
                   </div>
-                  {item.descuento > 0 && (
-                    <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 'normal', marginTop: '0.15rem' }}>
-                      Ahorras: {formatCOP(item.precio_venta * (item.descuento / 100) * item.qty)}
+                  <button onClick={() => eliminarDelCarrito(item)} className="no-print opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all font-black">&times;</button>
+                </div>
+                
+                <div className="flex flex-wrap items-center justify-between mt-6 pt-6 border-t border-slate-200/60 gap-4">
+                  <div className="flex items-center bg-white rounded-2xl p-1 shadow-sm no-print border border-slate-100">
+                    <button onClick={() => removerDelCarrito(item)} className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-900 font-black">-</button>
+                    <span className="w-10 text-center font-black text-sm">{item.qty}</span>
+                    <button onClick={() => agregarAlCarrito(item)} className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-900 font-black">+</button>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 no-print">
+                    <div className="text-right">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Dcto (%)</span>
+                        <input 
+                            type="number" 
+                            className="w-16 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-center text-xs font-black text-indigo-600 outline-none focus:ring-8 focus:ring-indigo-50"
+                            value={item.descuento || 0} 
+                            onChange={e => handleDescuentoChange(item.id, e.target.value)} 
+                        />
+                    </div>
+                  </div>
+
+                  <div className="text-right ml-auto">
+                    <span className="text-[9px] text-slate-400 block font-black uppercase tracking-widest mb-1">Subtotal Lote</span>
+                    <span className="text-lg font-black text-slate-900 tracking-tighter">
+                        {formatCOP((item.precio_venta * (1 - (item.descuento || 0)/100)) * item.qty)}
                     </span>
-                  )}
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
 
+        {/* Totals Section */}
         {carrito.length > 0 && (
-          <div className="cart-summary">
-            <div className="summary-row" style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>
-              <span>Subtotal Inicial:</span>
-              <span>{formatCOP(subtotalOriginal)}</span>
-            </div>
-            {valorDescuento > 0 && (
-              <div className="summary-row" style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 'bold' }}>
-                <span>AHORRO (-):</span>
-                <span>-{formatCOP(valorDescuento)}</span>
-              </div>
-            )}
-            <div className="summary-row" style={{ fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem', color: '#0f172a' }}>
-              <span>TOTAL:</span>
-              <span>{formatCOP(granTotal)}</span>
-            </div>
-            
-            <div className="print-only" style={{ marginTop: '1.5rem', fontSize: '12px', textAlign: 'left' }}>
-              <p style={{ margin: '4px 0' }}><strong>Fecha de compra:</strong> {new Date().toLocaleString()}</p>
-              <p style={{ margin: '4px 0' }}><strong>Forma de pago:</strong> {metodoPago}</p>
-              <p style={{ margin: '4px 0' }}><strong>ID del cliente:</strong> {clienteSeleccionado.documento || clienteSeleccionado.id || 'N/A'}</p>
-              <p style={{ margin: '4px 0' }}><strong>Distribuidor:</strong> {clienteSeleccionado.nombre}</p>
-              {clienteSeleccionado.direccion && <p style={{ margin: '4px 0' }}><strong>Dirección:</strong> {clienteSeleccionado.direccion}</p>}
-              <p style={{ margin: '4px 0' }}><strong>Cajero Vendedor:</strong> {cajeroSeleccionado.nombre}</p>
-              
-              <div style={{ margin: '15px 0 5px 0', borderTop: '1px dashed #ccc', paddingTop: '10px', whiteSpace: 'pre-wrap', textAlign: 'center', fontSize: '11px' }}>
-                {empresa.resolucion || "Resolución DIAN Autorizada"}
-              </div>
-              <p style={{ textAlign: 'center', marginTop: '10px' }}>¡Gracias por confiar en nuestros precios mayoristas!</p>
-            </div>
+          <div className="p-10 bg-slate-950 text-white rounded-t-[56px] shadow-2xl relative overflow-hidden shrink-0">
+            <div className="space-y-5 relative z-10">
+                <div className="flex justify-between items-center text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span>Avalúo Comercial</span>
+                    <span className="line-through">{formatCOP(subtotalOriginal)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sky-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span>Incentivos Aplicados</span>
+                    <span className="font-black">-{formatCOP(valorDescuento)}</span>
+                </div>
+                <div className="pt-6 border-t border-slate-900 flex justify-between items-end">
+                    <div>
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] block mb-2">Total Compra Mayorista</span>
+                        <div className="text-5xl font-black tracking-tighter text-white">{formatCOP(granTotal)}</div>
+                    </div>
+                </div>
 
-            <div className="cart-actions no-print" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', marginTop: '0.75rem', overflow: 'hidden' }}>
-              <button className="btn-secondary" style={{ flex: 1, minWidth: 0, backgroundColor: '#f8fafc', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.45rem', fontSize: '0.9rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }} onClick={vaciarCarrito}>🗑 Vaciar</button>
-              <button className="btn-primary" style={{ flex: 2, minWidth: 0, padding: '0.45rem', fontSize: '0.95rem', backgroundColor: '#4f46e5', borderRadius: '6px', border: 'none', cursor: 'pointer', color: 'white', fontWeight: 'bold' }} onClick={() => setShowCheckout(true)}>💰 Emitir Cobro</button>
+                <div className="grid grid-cols-2 gap-4 mt-10 no-print">
+                    <button onClick={vaciarCarrito} className="py-5 bg-slate-900 text-slate-500 font-black rounded-3xl hover:text-white transition-all border border-slate-800 uppercase tracking-widest text-[10px]">Vaciar</button>
+                    <button onClick={() => setShowCheckout(true)} className="py-5 bg-sky-500 text-white font-black rounded-3xl shadow-2xl shadow-sky-500/20 hover:bg-sky-600 hover:-translate-y-1 transition-all uppercase tracking-widest text-[10px]">Finalizar Compra</button>
+                </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* MODAL DE CHECKOUT */}
-      {showCheckout && !ventaExitosa && (
-        <div className="modal-overlay no-print">
-          <div className="modal-content fade-in">
-            <h2>Liquidar Venta Mayorista</h2>
-            
-            <div className="checkout-total" style={{backgroundColor: '#e0f2fe', color: '#0369a1'}}>
-              Gran Total: {formatCOP(granTotal)}
-            </div>
-
-            <div className="form-group" style={{ marginTop: '1.5rem' }}>
-              <label>Método de Pago</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  className={metodoPago === "Efectivo" ? "btn-primary active" : "btn-secondary"} 
-                  onClick={() => setMetodoPago("Efectivo")} 
-                  style={{ flex: 1, padding: '0.75rem', border: metodoPago !== "Efectivo" ? '1px solid #ddd' : 'none', backgroundColor: metodoPago === 'Efectivo' ? '#0ea5e9' : '' }}>
-                  💵 Efectivo
-                </button>
-                <button 
-                  className={metodoPago === "Transferencia" ? "btn-primary active" : "btn-secondary"} 
-                  onClick={() => setMetodoPago("Transferencia")} 
-                  style={{ flex: 1, padding: '0.75rem', border: metodoPago !== "Transferencia" ? '1px solid #ddd' : 'none', backgroundColor: metodoPago === 'Transferencia' ? '#0ea5e9' : '' }}>
-                  🏦 Transferencia/Cheque
-                </button>
-              </div>
-            </div>
-
-            {metodoPago === "Efectivo" && (
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label>Efectivo Recibido en Caja ($)</label>
-                <input 
-                  type="number" 
-                  autoFocus
-                  style={{ fontSize: '1.1rem', padding: '0.8rem' }}
-                  value={pagoCliente} 
-                  onChange={(e) => setPagoCliente(e.target.value)} 
-                  placeholder="Ej. Cuánto entrega físico..." 
-                />
-                
-                {cashPaga > 0 && (
-                  <div className={`vuelto-display ${vuelto >= 0 ? "success-text" : "danger-text"}`} style={{ marginTop: '0.75rem', fontSize: '1.1rem', fontWeight: 'bold' }}>
-                    {vuelto >= 0 ? `Entregar Cambio / Vuelto: ${formatCOP(vuelto)}` : `El cliente aún debe: ${formatCOP(Math.abs(vuelto))}`}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowCheckout(false)}>Volver a Calculadora</button>
-              <button 
-                className="btn-primary" 
-                style={{ flex: 2, backgroundColor: '#0ea5e9' }} 
-                onClick={confirmarVenta}
-                disabled={isProcessing || (metodoPago === "Efectivo" && cashPaga < granTotal)}
-              >
-                {isProcessing ? "Descontando Stock..." : "✅ Registrar en Sistema"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL VENTA ÉXITO / TICKET */}
-      {ventaExitosa && (
-        <div className="modal-overlay no-print">
-          <div className="modal-content fade-in text-center">
-            <h1 style={{ fontSize: '4rem', margin: '0 0 1rem 0' }}>🎉</h1>
-            <h2>Lote Mayorista Procesado</h2>
-            <p>Doscontados del inventario.</p>
-            {metodoPago === "Efectivo" && vuelto > 0 && (
-              <div style={{ backgroundColor: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', margin: '1.5rem 0' }}>
-                <span style={{ display: 'block', color: 'var(--success)', fontSize: '0.9rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Devolver Cambio Exacto</span>
-                <strong style={{ fontSize: '2rem', color: 'var(--success)' }}>{formatCOP(vuelto)}</strong>
-              </div>
-            )}
-
-            <button className="btn-primary full-width" onClick={imprimirYTerminar} style={{ padding: '1rem', fontSize: '1.1rem', backgroundColor: '#0f172a', marginBottom: '1rem' }}>
-              🖨️ Imprimir Factura a Cliente
-            </button>
-            <button className="btn-secondary full-width" style={{ marginTop: '0.75rem', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', padding: '1rem', fontSize: '1.1rem' }} onClick={() => { 
-                setVentaExitosa(false); 
-                setShowCheckout(false); 
-                setPagoCliente(""); 
-                setFacturaIdImpresion(null);
-                if (tabs.length > 1) {
-                  const newTabs = tabs.filter(t => t.id !== activeTabId);
-                  setTabs(newTabs);
-                  setActiveTabId(newTabs[0].id);
-                } else {
-                  setCarrito([]);
-                  setClienteId("1");
-                  setClienteSearch("");
-                }
-              }}>
-              ✅ Finalizar e iniciar nuevo lote
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

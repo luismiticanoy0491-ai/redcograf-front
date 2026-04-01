@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
 
 function PagosEmpleados() {
-  const [ nomina, setNomina ] = useState([]);
+  const [ nomina, setNomina ] = useState<any[]>([]);
   const [ loading, setLoading ] = useState(false);
-  const [ error, setError ] = useState(null);
+  const [ error, setError ] = useState<string | null>(null);
   
   const currentDate = new Date();
-  const [ mes, setMes ] = useState(currentDate.getMonth() + 1); // 1 to 12
+  const [ mes, setMes ] = useState(currentDate.getMonth() + 1);
   const [ anio, setAnio ] = useState(currentDate.getFullYear());
 
-  const [ ticketData, setTicketData ] = useState(null);
+  const [ ticketData, setTicketData ] = useState<any>(null);
 
   const meses = [
     { value: 1, label: "Enero" }, { value: 2, label: "Febrero" },
@@ -29,8 +29,7 @@ function PagosEmpleados() {
       const res = await API.get(`/pagos?mes=${mes}&anio=${anio}`);
       setNomina(res.data);
     } catch (err) {
-      console.error(err);
-      setError("No pudimos conectar con el servidor para calcular la nómina. Verifica tu conexión o reinicia el sistema.");
+      setError("Error conectando con el servidor de nómina.");
     } finally {
       setLoading(false);
     }
@@ -49,8 +48,8 @@ function PagosEmpleados() {
     }
   }, [ticketData]);
 
-  const handlePagar = async (empleado) => {
-    if (!window.confirm(`¿Confirmas el pago a ${empleado.nombre} por un total de ${formatCOP(empleado.total_a_pagar)}?`)) return;
+  const handlePagar = async (empleado: any) => {
+    if (!window.confirm(`¿Confirmar pago a ${empleado.nombre} por ${formatCOP(empleado.total_a_pagar)}?`)) return;
 
     try {
       await API.post("/pagos", {
@@ -62,9 +61,7 @@ function PagosEmpleados() {
         total_pagado: empleado.total_a_pagar,
         metodo_pago: "Efectivo"
       });
-      alert("✅ Pago registrado satisfactoriamente.");
       
-      // Imprimir el soporte justo despues de pagar
       setTicketData({
         ...empleado,
         mesLabel: meses.find(m => m.value === parseInt(mes.toString()))?.label || "",
@@ -73,13 +70,12 @@ function PagosEmpleados() {
       });
 
       fetchNomina();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
       alert(err.response?.data?.error || "Error al registrar el pago.");
     }
   };
 
-  const handleReimprimirSoporte = (empleado) => {
+  const handleReimprimirSoporte = (empleado: any) => {
      setTicketData({
         ...empleado,
         mesLabel: meses.find(m => m.value === parseInt(mes.toString()))?.label || "",
@@ -90,153 +86,171 @@ function PagosEmpleados() {
   const totalNominaCalculada = nomina.reduce((acc, emp) => acc + emp.total_a_pagar, 0);
 
   return (
-    <div className="fade-in">
-      <div className="no-print header-section">
-        <h2>Administración de Pagos (Nómina)</h2>
-        <p>Calcula dinámicamente el salario y comisiones según las ventas mensuales.</p>
-      </div>
-
-      <div className="no-print grid-container" style={{ gridTemplateColumns: 'minmax(300px, 1fr) 3fr', gap: '1.5rem', alignItems: 'start' }}>
+    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700 pb-20">
+      
+      <div className="no-print space-y-12">
         
-        {/* PANEL IZQUIERDO: FILTROS */}
-        <div className="card form-card">
-          <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Filtro de Periodo</h3>
-          
-          <div className="form-group">
-            <label>Mes de Trabajo</label>
-            <select value={mes} onChange={(e) => setMes(parseInt(e.target.value))} style={{ padding: '0.75rem', fontSize: '1.05rem', width: '100%', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              {meses.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-          </div>
-          
-          <div className="form-group" style={{ marginTop: '1rem' }}>
-            <label>Año Fiscal</label>
-            <input type="number" value={anio} onChange={(e) => setAnio(parseInt(e.target.value))} min="2020" max="2100" style={{ padding: '0.75rem', fontSize: '1.05rem', width: '100%' }} />
-          </div>
-
-          <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <span style={{ display: 'block', color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold' }}>Gran Total de Nómina (Proyectado)</span>
-            <span style={{ display: 'block', fontSize: '1.8rem', fontWeight: '900', color: '#0f172a' }}>{formatCOP(totalNominaCalculada)}</span>
-          </div>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200">
+            <div className="space-y-1">
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+                    Nómina y Comisiones
+                </h1>
+                <p className="text-slate-500 font-medium text-lg italic">Liquidación mensual de salarios fijos y bonificaciones por ventas.</p>
+            </div>
         </div>
 
-        {/* PANEL DERECHO: TABLA */}
-        <div className="card table-card" style={{ overflowX: 'auto', backgroundColor: 'white' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Planilla de Liquidación ({nomina.length} empleados)</h3>
-          
-          {error && (
-            <div style={{ padding: '1rem', marginBottom: '1rem', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#b91c1c', borderRadius: '4px' }}>
-              ⚠️ {error}
-            </div>
-          )}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+            
+            {/* Control Sidebar */}
+            <div className="xl:col-span-4 space-y-6">
+                <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-8">
+                    <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                        <span className="w-2 h-6 bg-indigo-600 rounded-full"></span> Periodo Fiscal
+                    </h3>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mes de Operación</label>
+                            <select value={mes} onChange={(e) => setMes(parseInt(e.target.value))} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all">
+                                {meses.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Año</label>
+                            <input type="number" value={anio} onChange={(e) => setAnio(parseInt(e.target.value))} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all" />
+                        </div>
+                    </div>
 
-          {loading ? (
-            <p style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>Calculando comisiones...</p>
-          ) : (
-            <table className="modern-table" style={{ minWidth: '700px' }}>
-              <thead>
-                <tr>
-                  <th>Empleado</th>
-                  <th>Salario Base</th>
-                  <th>Ventas (Mes)</th>
-                  <th>Comisiones Ganadas</th>
-                  <th>Gran Total</th>
-                  <th style={{ textAlign: 'center' }}>Estado</th>
-                  <th style={{ textAlign: 'center' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nomina.map((emp) => (
-                  <tr key={emp.cajero_id} className="row-hover">
-                    <td>
-                      <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{emp.nombre}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Doc: {emp.documento || "N/A"}</div>
-                    </td>
-                    <td style={{ color: '#475569' }}>{formatCOP(emp.salario_base)}</td>
-                    <td style={{ color: '#64748b', fontSize: '0.9rem' }}>{formatCOP(emp.total_ventas)}</td>
-                    <td>
-                       <div style={{ fontWeight: 'bold', color: emp.comisiones > 0 ? '#16a34a' : '#64748b' }}>{formatCOP(emp.comisiones)}</div>
-                       {emp.porcentaje_comision > 0 && <div style={{ fontSize: '0.75rem', color: '#16a34a' }}>Aplica {emp.porcentaje_comision}%</div>}
-                    </td>
-                    <td style={{ fontWeight: '900', color: '#0369a1', fontSize: '1.1rem' }}>{formatCOP(emp.total_a_pagar)}</td>
-                    <td style={{ textAlign: 'center' }}>
-                       {emp.estado === "Pagado" ? (
-                          <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '0.3rem 0.6rem', borderRadius: '1rem', fontSize: '0.85rem', fontWeight: 'bold' }}>✅ Pagado</span>
-                       ) : (
-                          <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.3rem 0.6rem', borderRadius: '1rem', fontSize: '0.85rem', fontWeight: 'bold' }}>⏳ Pendiente</span>
-                       )}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                       {emp.estado === "Pagado" ? (
-                          <button className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={() => handleReimprimirSoporte(emp)}>🖨️ Soporte</button>
-                       ) : (
-                          <button className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={() => handlePagar(emp)}>💰 Pagar</button>
-                       )}
-                    </td>
-                  </tr>
-                ))}
-                {nomina.length === 0 && !error && (
-                  <tr>
-                    <td colSpan={7} className="text-center" style={{ padding: '3rem', color: '#64748b' }}>
-                       Aún no tienes personal registrado en la sección "Cajeros y Personal". Agrega tus empleados primero.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
+                    <div className="pt-8 border-t border-slate-100">
+                        <div className="p-6 bg-slate-950 rounded-3xl relative overflow-hidden group">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 block relative z-10">Desembolso Proyectado</span>
+                            <span className="text-3xl font-black text-white tracking-tighter relative z-10">{formatCOP(totalNominaCalculada)}</span>
+                            <div className="absolute -right-4 -bottom-4 text-6xl opacity-10 group-hover:scale-125 transition-transform duration-700">💸</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Table Area */}
+            <div className="xl:col-span-8">
+                <div className="bg-white rounded-[48px] border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
+                            <span className="w-2 h-6 bg-slate-900 rounded-full"></span> Planilla de Liquidación
+                        </h3>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 py-1 bg-slate-50 rounded-full">{nomina.length} Empleados</span>
+                    </div>
+
+                    {error && (
+                        <div className="m-8 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold animate-in slide-in-from-top-2">
+                            ⚠️ {error}
+                        </div>
+                    )}
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-slate-50/30">
+                                    <th className="px-8 py-5">Colaborador</th>
+                                    <th className="px-8 py-5 text-right">Devengado Fijo</th>
+                                    <th className="px-8 py-5 text-right">Comisiones</th>
+                                    <th className="px-8 py-5 text-right">Total Neto</th>
+                                    <th className="px-8 py-5 text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {loading ? (
+                                    <tr><td colSpan={5} className="py-24 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">Calculando compensaciones...</td></tr>
+                                ) : nomina.length === 0 ? (
+                                    <tr><td colSpan={5} className="py-24 text-center text-slate-300 font-bold italic opacity-50">No hay personal activo en este periodo.</td></tr>
+                                ) : (
+                                    nomina.map(emp => (
+                                        <tr key={emp.cajero_id} className="group hover:bg-slate-50 transition-colors">
+                                            <td className="px-8 py-6">
+                                                <div className="font-black text-slate-900 uppercase leading-tight group-hover:text-indigo-600 transition-colors">{emp.nombre}</div>
+                                                <div className="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-tighter">ID: {emp.documento || "—"}</div>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="font-bold text-slate-600 text-sm tracking-tight">{formatCOP(emp.salario_base)}</div>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className={`font-black text-sm ${emp.comisiones > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                                                    +{formatCOP(emp.comisiones)}
+                                                </div>
+                                                {emp.porcentaje_comision > 0 && <div className="text-[8px] font-black text-emerald-400 uppercase">Efec. {emp.porcentaje_comision}%</div>}
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="font-black text-slate-900 text-lg tracking-tighter">{formatCOP(emp.total_a_pagar)}</div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                {emp.estado === "Pagado" ? (
+                                                    <button onClick={() => handleReimprimirSoporte(emp)} className="px-5 py-2 bg-slate-100 text-[10px] font-black text-slate-500 rounded-xl hover:bg-slate-900 hover:text-white transition-all uppercase tracking-widest border border-slate-200">🖨️ Re-Imprimir</button>
+                                                ) : (
+                                                    <button onClick={() => handlePagar(emp)} className="px-8 py-3 bg-indigo-600 text-[10px] font-black text-white rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-1 transition-all uppercase tracking-widest">💰 Pagar Salario</button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
 
-      {/* COMPROBANTE IMPRIMIBLE OCULTO (solo se muestra al hacer ctrl+p o disparar window.print) */}
+      {/* PRINT SLIP: hidden per definition */}
       {ticketData && (
-         <div className="printable-receipt print-only fade-in">
-            <div className="receipt-header" style={{ marginBottom: '1rem', textAlign: 'center' }}>
-               <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900', color: 'black' }}>TIENDA POS</h2>
-               <p style={{ margin: '5px 0', fontSize: '12px', fontWeight: 'bold' }}>COMPROBANTE DE PAGO DE NÓMINA</p>
-               <p style={{ margin: 0, fontSize: '12px' }}>Periodo: {ticketData.mesLabel} {ticketData.anio}</p>
-               <p style={{ margin: 0, fontSize: '12px' }}>Fecha Impresión: {new Date().toLocaleString()}</p>
+        <div className="print-only p-10 text-black font-mono leading-tight space-y-6">
+            <div className="text-center space-y-2">
+                <h2 className="text-xl font-bold uppercase">Soporte de Pago</h2>
+                <div className="py-2 border-y border-dashed border-black my-4 text-xs font-bold uppercase">
+                    Liquidación {ticketData.mesLabel} {ticketData.anio}
+                </div>
+                <p className="text-[10px] uppercase font-bold opacity-70">Fecha: {new Date().toLocaleString()}</p>
             </div>
 
-            <div style={{ fontSize: '12px', margin: '15px 0' }}>
-               <p><strong>Empleado:</strong> {ticketData.nombre}</p>
-               <p><strong>Identificación:</strong> {ticketData.documento || 'N/A'}</p>
+            <div className="text-[12px] space-y-2 border-b border-dashed border-black pb-6">
+                <p><strong>Colaborador:</strong> {ticketData.nombre}</p>
+                <p><strong>Documento:</strong> {ticketData.documento || '—'}</p>
             </div>
 
-            <table style={{ width: '100%', fontSize: '12px', marginBottom: '1rem', borderCollapse: 'collapse' }}>
-               <thead style={{ borderBottom: '1px dashed black', borderTop: '1px dashed black' }}>
-                 <tr>
-                   <th style={{ textAlign: 'left', padding: '4px 0' }}>Concepto</th>
-                   <th style={{ textAlign: 'right', padding: '4px 0' }}>Valor</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 <tr>
-                   <td style={{ padding: '4px 0' }}>Salario Base</td>
-                   <td style={{ textAlign: 'right', padding: '4px 0' }}>{formatCOP(ticketData.salario_base)}</td>
-                 </tr>
-                 <tr>
-                   <td style={{ padding: '4px 0' }}>Comisiones por Ventas ({ticketData.porcentaje_comision}%)</td>
-                   <td style={{ textAlign: 'right', padding: '4px 0' }}>{formatCOP(ticketData.comisiones)}</td>
-                 </tr>
-               </tbody>
+            <table className="w-full text-xs">
+                <thead>
+                    <tr className="border-b border-black">
+                        <th className="py-2 text-left uppercase">Concepto</th>
+                        <th className="py-2 text-right uppercase">Valor</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-black/10">
+                    <tr>
+                        <td className="py-3 uppercase font-medium">Salario Base Contractual</td>
+                        <td className="py-3 text-right font-bold">{formatCOP(ticketData.salario_base)}</td>
+                    </tr>
+                    <tr>
+                        <td className="py-3 uppercase font-medium">Bonificación Comisiones ({ticketData.porcentaje_comision}%)</td>
+                        <td className="py-3 text-right font-bold text-emerald-700">+{formatCOP(ticketData.comisiones)}</td>
+                    </tr>
+                </tbody>
             </table>
 
-            <div style={{ borderTop: '1px dashed black', paddingTop: '10px', marginTop: '10px' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
-                 <span>TOTAL PAGADO:</span>
-                 <span>{formatCOP(ticketData.total_a_pagar)}</span>
-               </div>
+            <div className="pt-6 border-t-2 border-black space-y-4">
+                <div className="flex justify-between font-black text-xl">
+                    <span>NETO PAGADO:</span>
+                    <span>{formatCOP(ticketData.total_a_pagar)}</span>
+                </div>
+                
+                <div className="pt-16 flex flex-col items-center gap-2">
+                    <div className="w-64 border-t border-black"></div>
+                    <p className="text-[10px] font-bold uppercase">Firma de Conformidad</p>
+                    <p className="text-[10px] uppercase font-black">{ticketData.nombre}</p>
+                </div>
             </div>
 
-            <div className="print-only" style={{ marginTop: '2.5rem', textAlign: 'center', fontSize: '12px' }}>
-               <p>___________________________________</p>
-               <p>Firma de Recibido Conformidad</p>
-               <p>{ticketData.nombre}</p>
-               <br/>
-               <p style={{ fontSize: '10px' }}>Documento oficial de liquidación laboral.</p>
-            </div>
-         </div>
+            <p className="text-center text-[8px] pt-10 opacity-50 uppercase tracking-widest italic">Documento generado por RedCograf ERP</p>
+        </div>
       )}
 
     </div>

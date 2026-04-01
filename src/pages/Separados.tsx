@@ -30,8 +30,6 @@ export default function Separados() {
   const [facturaPrintData, setFacturaPrintData] = useState<{cabecera: any, detalles: any[]} | null>(null);
   const [separadoPrintData, setSeparadoPrintData] = useState<{separado: any, abonos: any[]} | null>(null);
 
-  // Las impresiones se manejan en las funciones correspondientes para evitar que useEffect elimine los datos y cause vistas en blanco.
-  
   const [newClienteId, setNewClienteId] = useState("");
   const [clienteSearch, setClienteSearch] = useState("");
   const [cart, setCart] = useState<any[]>([]);
@@ -116,7 +114,6 @@ export default function Separados() {
 
     try {
       await API.post(`/separados/${viewSeparado.id}/abonos`, { monto: abono });
-      alert("Abono registrado");
       openView(viewSeparado.id);
       fetchSeparados();
     } catch (e: any) {
@@ -128,9 +125,8 @@ export default function Separados() {
     if (!cajeroId) return alert("Selecciona el cajero vendedor");
     try {
       const resp = await API.put(`/separados/${viewSeparado.id}/completar`, { cajero_id: parseInt(cajeroId) });
-      alert("✅ Venta Completada exitosamente y descontado de inventario");
       
-      if (window.confirm("¿Desea imprimir la tirilla de pago?")) {
+      if (window.confirm("¿Imprimir comprobante de entrega?")) {
         API.get(`/ventas/${resp.data.factura_id}`)
           .then(resVentas => {
             const cajeroName = cajeros.find(c => c.id.toString() === cajeroId)?.nombre || "Principal";
@@ -157,10 +153,9 @@ export default function Separados() {
   };
 
   const handleAnular = async () => {
-    if (!window.confirm("¿Estás seguro de anular este separado?")) return;
+    if (!window.confirm("¿Anular este separado?")) return;
     try {
       await API.put(`/separados/${viewSeparado.id}/anular`);
-      alert("Separado anulado");
       openView(viewSeparado.id);
       fetchSeparados();
     } catch (e: any) {
@@ -184,356 +179,372 @@ export default function Separados() {
   });
 
   return (
-    <div className="fade-in" style={{ padding: '2rem' }}>
-      <div className="no-print">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-         <div>
-            <h1>🛒 Gestión de Separados</h1>
-            <p>Separa productos para clientes y gestiona sus abonos parciales hasta la liquidación.</p>
-         </div>
-         <button className="btn-primary" onClick={() => setShowNewModal(true)}>+ Nuevo Separado</button>
-      </div>
+    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700 pb-20">
+      
+      <div className="no-print space-y-10">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200">
+            <div className="space-y-1">
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+                    Sistema de Separados
+                </h1>
+                <p className="text-slate-500 font-medium text-lg italic">Gestión de créditos, abonos parciales y liquidación de mercancía.</p>
+            </div>
+            <button 
+                onClick={() => setShowNewModal(true)}
+                className="px-8 py-4 bg-slate-900 text-white rounded-[24px] font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-800 hover:-translate-y-1 transition-all"
+            >
+                + Iniciar Separado
+            </button>
+        </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <input 
-          type="text" 
-          placeholder="🔍 Buscar separado por cliente (#ID, Nombre o Documento)..." 
-          value={termSeparado} 
-          onChange={e => setTermSeparado(e.target.value)} 
-          style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
-        />
-      </div>
+        {/* Search Bar */}
+        <div className="relative group">
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-600 transition-colors text-xl">🔍</span>
+            <input 
+                type="text" 
+                placeholder="Localizar separado por cliente, ID o documento..." 
+                value={termSeparado} 
+                onChange={e => setTermSeparado(e.target.value)} 
+                className="w-full pl-16 pr-8 py-5 bg-white border border-slate-200 rounded-[32px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-amber-50 focus:border-amber-400 transition-all shadow-sm"
+            />
+        </div>
 
-      <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        {loading ? <p>Cargando separados...</p> : (
-          <table className="modern-table" style={{ width: '100%', textAlign: 'left' }}>
-             <thead>
-                <tr>
-                   <th>ID</th>
-                   <th>Cliente</th>
-                   <th>Fecha</th>
-                   <th>Total</th>
-                   <th>Saldo Pend.</th>
-                   <th>Estado</th>
-                   <th>Acción</th>
-                </tr>
-             </thead>
-             <tbody>
-               {filteredSeparados.map(s => (
-                 <tr key={s.id}>
-                    <td>#{s.id}</td>
-                    <td>{s.cliente_nombre || "Desconocido"}</td>
-                    <td>{new Date(s.fecha_creacion).toLocaleDateString()}</td>
-                    <td>{formatCOP(s.total)}</td>
-                    <td style={{ fontWeight: 'bold', color: parseFloat(s.saldo_pendiente) > 0 ? '#ef4444' : '#10b981' }}>{formatCOP(s.saldo_pendiente)}</td>
-                    <td>
-                      <span style={{ 
-                        padding: '4px 8px', borderRadius: '4px', fontSize: '12px',
-                        background: s.estado === 'Pendiente' ? '#fef08a' : (s.estado === 'Pagado' ? '#bbf7d0' : '#fecaca'),
-                        color: s.estado === 'Pendiente' ? '#a16207' : (s.estado === 'Pagado' ? '#166534' : '#991b1b')
-                      }}>
-                         {s.estado}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="btn-secondary" style={{ padding: '0.4rem 0.8rem' }} onClick={() => openView(s.id)}>Ver / Gestionar</button>
-                     </td>
-                 </tr>
-               ))}
-               {filteredSeparados.length === 0 && !loading && <tr><td colSpan={7} style={{textAlign: 'center', padding: '1.5rem', color: '#64748b'}}>No hay separados registrados que coincidan con la búsqueda.</td></tr>}
-               {separados.length === 0 && loading && <tr><td colSpan={7} style={{textAlign: 'center', padding: '1.5rem', color: '#64748b'}}>Cargando...</td></tr>}
-             </tbody>
-          </table>
+        {/* List Card */}
+        <div className="bg-white rounded-[48px] border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-6 bg-amber-500 rounded-full"></span> Carteras Pendientes
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 py-1 bg-white border border-slate-100 rounded-full">
+                    {filteredSeparados.length} Registros Activos
+                </span>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-white">
+                            <th className="px-8 py-5">Control #</th>
+                            <th className="px-8 py-5">Titular del Separado</th>
+                            <th className="px-8 py-5 text-center">Valor Base</th>
+                            <th className="px-8 py-5 text-center">Saldo Residual</th>
+                            <th className="px-8 py-5 text-center">Progreso</th>
+                            <th className="px-8 py-5 text-center">Estatus</th>
+                            <th className="px-8 py-5 text-center">Opciones</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {loading ? (
+                            <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Sincronizando estado de carteras...</td></tr>
+                        ) : filteredSeparados.length === 0 ? (
+                            <tr><td colSpan={7} className="py-24 text-center text-slate-300 font-bold italic opacity-50">No hay registros para mostrar.</td></tr>
+                        ) : (
+                            filteredSeparados.map(s => {
+                                const pagado = parseFloat(s.total) - parseFloat(s.saldo_pendiente);
+                                const pct = (pagado / parseFloat(s.total)) * 100;
+                                return (
+                                    <tr key={s.id} className="group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => openView(s.id)}>
+                                        <td className="px-8 py-6 font-black text-slate-400">#{(s.id).toString().padStart(4, '0')}</td>
+                                        <td className="px-8 py-6">
+                                            <div className="font-black text-slate-900 group-hover:text-amber-600 transition-colors uppercase leading-tight">{s.cliente_nombre || "Cliente Casual"}</div>
+                                            <div className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-tighter">Desde: {new Date(s.fecha_creacion).toLocaleDateString()}</div>
+                                        </td>
+                                        <td className="px-8 py-6 text-center font-bold text-slate-600 text-xs">{formatCOP(s.total)}</td>
+                                        <td className="px-8 py-6 text-center">
+                                            <div className={`font-black text-lg tracking-tighter ${parseFloat(s.saldo_pendiente) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                {formatCOP(s.saldo_pendiente)}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="w-24 mx-auto h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }}></div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6 text-center">
+                                            <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                                s.estado === 'Pendiente' ? 'bg-amber-100 text-amber-700' : 
+                                                s.estado === 'Pagado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                            }`}>
+                                                {s.estado}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6 text-center">
+                                            <button className="px-5 py-2 bg-white border border-slate-200 text-[10px] font-black text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all uppercase tracking-widest">Abrir</button>
+                                        </td>
+                                    </tr>
+                                )
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {/* MODAL: New Separado */}
+        {showNewModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowNewModal(false)}></div>
+                <div className="relative w-full max-w-2xl bg-white rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in duration-400 flex flex-col max-h-[90vh]">
+                    <div className="p-10 border-b border-slate-100 flex justify-between items-center shrink-0">
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Iniciar Nuevo Separado</h2>
+                        <button onClick={() => setShowNewModal(false)} className="text-3xl text-slate-300 hover:text-slate-500 transition-colors">&times;</button>
+                    </div>
+                    
+                    <div className="p-10 flex-1 overflow-y-auto space-y-8 scrollbar-none">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vincular Cliente</label>
+                            {newClienteId ? (
+                                <div className="flex items-center justify-between p-5 bg-emerald-50 border border-emerald-100 rounded-3xl">
+                                    <span className="font-black text-emerald-800 uppercase tracking-tight">
+                                        {clientes.find(c => c.id.toString() === newClienteId)?.nombre}
+                                    </span>
+                                    <button onClick={() => setNewClienteId("")} className="text-emerald-300 hover:text-emerald-600 font-black">QUITAR</button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <input type="text" value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} placeholder="Escriba nombre o cédula..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-amber-50" />
+                                    {clienteSearch && (
+                                        <div className="absolute top-full left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-xl z-10 mt-2 overflow-hidden max-h-48 overflow-y-auto">
+                                            {clientes.filter(c => c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || (c.documento && c.documento.includes(clienteSearch))).map(c => (
+                                                <div key={c.id} onClick={() => { setNewClienteId(c.id.toString()); setClienteSearch(""); }} className="p-4 hover:bg-slate-50 cursor-pointer border-b border-slate-50 text-sm font-bold text-slate-700 uppercase">
+                                                    {c.nombre} <span className="text-[10px] text-slate-400 ml-2">ID: {c.documento}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mercancía a Retener</label>
+                            <input type="text" value={prodSearch} onChange={e => setProdSearch(e.target.value)} placeholder="Escriba referencia o nombre ítem..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-amber-50" />
+                            {prodSearch && (
+                                <div className="bg-white border border-slate-100 rounded-2xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                                    {productos.filter(p => p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) || (p.referencia && p.referencia.toLowerCase().includes(prodSearch.toLowerCase()))).map(p => (
+                                        <div key={p.id} onClick={() => addProdToCart(p)} className="p-4 hover:bg-amber-50 cursor-pointer border-b border-slate-50 flex justify-between items-center transition-colors">
+                                            <div className="text-xs font-black text-slate-800 uppercase leading-tight">{p.nombre}</div>
+                                            <div className="font-black text-amber-600 text-xs">{formatCOP(p.precio_venta)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="space-y-2 mt-4">
+                                {cart.map((c, i) => (
+                                    <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="text-xs font-black text-slate-700 uppercase">x{c.qty} {c.nombre}</div>
+                                        <div className="text-xs font-black text-slate-400">{formatCOP(c.precio_venta * c.qty)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Total Acumulado</label>
+                                <div className="text-3xl font-black text-slate-900 tracking-tighter">
+                                    {formatCOP(cart.reduce((a,c) => a + c.precio_venta*c.qty, 0))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 block">Carga Inicial ($)</label>
+                                <input type="number" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} placeholder="0.00" className="w-full px-5 py-3 bg-amber-50 border border-amber-100 rounded-2xl font-black text-amber-700 text-xl outline-none" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
+                        <button onClick={() => setShowNewModal(false)} className="flex-1 py-5 bg-white border border-slate-200 text-slate-400 font-black rounded-3xl uppercase tracking-widest text-xs hover:bg-slate-100 transition-all">Cancelar</button>
+                        <button onClick={handleCreate} className="flex-[2] py-5 bg-slate-900 text-white font-black rounded-3xl shadow-2xl hover:bg-slate-800 hover:-translate-y-1 transition-all uppercase tracking-widest text-xs">Registrar Compromiso</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL: View/Manage Separado */}
+        {viewSeparado && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setViewSeparado(null)}></div>
+                <div className="relative w-full max-w-xl bg-white rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in duration-400">
+                    <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="space-y-1">
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                Auditoría #{(viewSeparado.id).toString().padStart(4, '0')}
+                                <span className="text-[9px] bg-amber-100 text-amber-700 px-3 py-1 rounded-full">{viewSeparado.estado}</span>
+                            </h2>
+                            <p className="text-slate-400 font-bold text-sm uppercase px-1">Titular: {viewSeparado.cliente_nombre}</p>
+                        </div>
+                        <button onClick={() => setViewSeparado(null)} className="text-3xl text-slate-300 hover:text-slate-500 font-black">&times;</button>
+                    </div>
+
+                    <div className="p-10 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-none">
+                        <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Paquete Bloqueado</h4>
+                            <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100 space-y-3">
+                                {(() => {
+                                    const items = typeof viewSeparado.detalles_json === 'string' ? JSON.parse(viewSeparado.detalles_json) : viewSeparado.detalles_json;
+                                    return items.map((itm: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-700 border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
+                                            <span>{itm.qty || itm.cantidad}x <span className="uppercase text-slate-400">{itm.nombre}</span></span>
+                                            <span className="font-black">{formatCOP(itm.precio_venta * (itm.qty || itm.cantidad))}</span>
+                                        </div>
+                                    ));
+                                })()}
+                                <div className="pt-3 flex justify-between items-end">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inversión Lote</span>
+                                    <span className="text-xl font-black text-slate-900 tracking-tighter">{formatCOP(viewSeparado.total)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trayectoria de Pagos</h4>
+                            <div className="space-y-3">
+                                {viewAbonos.length > 0 ? viewAbonos.map(a => (
+                                    <div key={a.id} className="flex justify-between items-center p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl">
+                                        <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest italic">{new Date(a.fecha_abono).toLocaleDateString()}</div>
+                                        <div className="font-black text-emerald-600 text-sm">+{formatCOP(a.monto)}</div>
+                                    </div>
+                                )) : <p className="text-center py-6 text-slate-300 font-bold italic text-sm">Sin movimientos recientes.</p>}
+                            </div>
+                        </div>
+
+                        {viewSeparado.estado === 'Pendiente' && (
+                            <div className="pt-6 border-t border-slate-100 space-y-6">
+                                {parseFloat(viewSeparado.saldo_pendiente) > 0 ? (
+                                    <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100 space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Deuda Restante</span>
+                                            <span className="text-2xl font-black text-amber-700 tracking-tighter">{formatCOP(viewSeparado.saldo_pendiente)}</span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <input type="number" placeholder="Ingresar Abono..." value={abonoInput} onChange={e => setAbonoInput(e.target.value)} className="flex-1 px-5 py-3 bg-white border border-amber-200 rounded-2xl font-black text-amber-700 outline-none" />
+                                            <button onClick={handleAbonar} className="px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-200">Abonar</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100 text-center space-y-5">
+                                        <div className="text-4xl">🏁</div>
+                                        <div className="space-y-1">
+                                            <h4 className="font-black text-emerald-800 text-lg uppercase tracking-tight">¡Total Liquidado!</h4>
+                                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Ya puedes entregar la mercancía al cliente.</p>
+                                        </div>
+                                        <select value={cajeroId} onChange={e => setCajeroId(e.target.value)} className="w-full px-5 py-3 bg-white border border-emerald-200 rounded-2xl font-black text-emerald-700 outline-none uppercase text-xs">
+                                            <option value="">-- Cajero Vendedor --</option>
+                                            {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                        </select>
+                                        <button onClick={handleCompletar} className="w-full py-5 bg-emerald-600 text-white rounded-3xl font-black shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all uppercase tracking-widest text-xs">Finalizar y Descontar Inventario</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-10 bg-slate-900 flex justify-between items-center gap-6">
+                        {viewSeparado.estado === 'Pendiente' ? (
+                            <button onClick={handleAnular} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-widest transition-colors underline underline-offset-4">Anular Todo</button>
+                        ) : <div/>}
+                        <div className="flex gap-4">
+                            <button onClick={handlePrintSeparado} className="px-8 py-4 bg-white/10 text-white font-black rounded-2xl hover:bg-white/20 transition-all uppercase tracking-widest text-[10px] flex items-center gap-2 border border-white/10">
+                                🖨️ PDF Recibo
+                            </button>
+                            <button onClick={() => setViewSeparado(null)} className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl transition-all uppercase tracking-widest text-[10px]">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         )}
       </div>
 
-      {showNewModal && (
-        <div className="modal-overlay">
-          <div className="modal-content fade-in" style={{ maxWidth: '700px' }}>
-            <h2>🛒 Crear Nuevo Separado</h2>
-            
-            <div style={{ marginTop: '1rem' }}>
-               <label>Cliente</label>
-               {newClienteId ? (
-                 <div style={{ padding: '0.5rem', border: '1px solid #10b981', background: '#ecfdf5', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <span>{clientes.find(c => c.id.toString() === newClienteId)?.nombre} | DOC: {clientes.find(c => c.id.toString() === newClienteId)?.documento || 'N/A'}</span>
-                    <button onClick={() => setNewClienteId("")} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontWeight: 'bold' }}>X</button>
-                 </div>
-               ) : (
-                 <>
-                   <input type="text" value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} placeholder="Buscar cliente por nombre o documento..." style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }} />
-                   {clienteSearch && (
-                     <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', marginTop: '-10px', marginBottom: '1rem' }}>
-                        {clientes.filter(c => c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || (c.documento && c.documento.includes(clienteSearch))).slice(0, 10).map(c => (
-                           <div key={c.id} onClick={() => { setNewClienteId(c.id.toString()); setClienteSearch(""); }} style={{ padding: '0.5rem', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                              {c.nombre} {c.documento ? `(DOC: ${c.documento})` : ''}
-                           </div>
-                        ))}
-                        {clientes.filter(c => c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || (c.documento && c.documento.includes(clienteSearch))).length === 0 && (
-                          <div style={{ padding: '0.5rem', color: '#666' }}>No se encontraron clientes</div>
-                        )}
-                     </div>
-                   )}
-                 </>
-               )}
-            </div>
-
-            <div style={{ marginBottom: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-               <label>Buscar Producto para Separar</label>
-               <input type="text" value={prodSearch} onChange={e => setProdSearch(e.target.value)} placeholder="Ref o Nombre..." style={{ width: '100%', padding: '0.5rem' }} />
-               {prodSearch && (
-                 <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', marginTop: '5px' }}>
-                    {productos.filter(p => p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) || p.referencia.toLowerCase().includes(prodSearch.toLowerCase())).slice(0, 10).map(p => (
-                       <div key={p.id} onClick={() => addProdToCart(p)} style={{ padding: '0.5rem', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                          {p.nombre} ({p.referencia}) - {formatCOP(p.precio_venta)} - Disp: {p.cantidad}
-                       </div>
-                    ))}
-                 </div>
-               )}
-            </div>
-
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1rem' }}>
-               {cart.length > 0 ? cart.map((c, i) => (
-                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: '#f8fafc', marginBottom: '0.5rem' }}>
-                    <span>x{c.qty} {c.nombre}</span>
-                    <span>{formatCOP(c.precio_venta * c.qty)}</span>
-                 </div>
-               )) : <p>No hay productos en lista.</p>}
-            </div>
-
-            <div style={{ borderTop: '2px solid #ddd', paddingTop: '1rem', marginBottom: '1.5rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem' }}>
-               Total: {formatCOP(cart.reduce((a,c) => a + c.precio_venta*c.qty, 0))}
-            </div>
-
-            <div>
-               <label>Abono Inicial (Opcional)</label>
-               <input type="number" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} placeholder="Ej. 50000" style={{ width: '100%', padding: '0.5rem', marginBottom: '1.5rem' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem' }}>
-               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowNewModal(false)}>Cancelar</button>
-               <button className="btn-primary" style={{ flex: 1 }} onClick={handleCreate}>Registrar Separado</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewSeparado && (
-        <div className="modal-overlay">
-          <div className="modal-content fade-in" style={{ maxWidth: '600px' }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Separado #{viewSeparado.id}</h2>
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', fontSize: '0.9rem', color: '#64748b' }}>
-               <span><strong>Estado:</strong> {viewSeparado.estado}</span>
-               <span><strong>Fecha:</strong> {new Date(viewSeparado.fecha_creacion).toLocaleDateString()}</span>
-            </div>
-
-            <h4 style={{ marginBottom: '0.5rem' }}>Productos Separados:</h4>
-            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-               {(() => {
-                  const items = typeof viewSeparado.detalles_json === 'string' ? JSON.parse(viewSeparado.detalles_json) : viewSeparado.detalles_json;
-                  return items.map((itm: any, idx: number) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                       <span>{itm.qty || itm.cantidad}x {itm.nombre}</span>
-                       <span>{formatCOP(itm.precio_venta * (itm.qty || itm.cantidad))}</span>
-                    </div>
-                  ));
-               })()}
-               <div style={{ textAlign: 'right', marginTop: '0.5rem', fontWeight: 'bold' }}>Total: {formatCOP(viewSeparado.total)}</div>
-            </div>
-
-            <h4 style={{ marginBottom: '0.5rem' }}>Historial de Abonos:</h4>
-            {viewAbonos.length > 0 ? (
-              <table style={{ width: '100%', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                 <tbody>
-                    {viewAbonos.map(a => (
-                      <tr key={a.id} style={{ borderBottom: '1px solid #eee' }}>
-                         <td style={{ padding: '0.3rem 0' }}>{new Date(a.fecha_abono).toLocaleDateString()}</td>
-                         <td style={{ textAlign: 'right', color: '#10b981', fontWeight: 'bold' }}>+{formatCOP(a.monto)}</td>
-                      </tr>
-                    ))}
-                 </tbody>
-              </table>
-            ) : <p style={{ fontSize: '0.9rem' }}>No hay abonos registrados todavía.</p>}
-
-            {/* SECCION ABONAR / COMPLETAR */}
-            {viewSeparado.estado === 'Pendiente' && parseFloat(viewSeparado.saldo_pendiente) > 0 && (
-              <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-                 <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#1e3a8a' }}>Saldo por Pagar: {formatCOP(viewSeparado.saldo_pendiente)}</p>
-                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                   <input type="number" placeholder="Monto a abonar" value={abonoInput} onChange={e => setAbonoInput(e.target.value)} style={{ flex: 1, padding: '0.5rem' }} />
-                   <button className="btn-primary" onClick={handleAbonar}>Registrar Abono</button>
-                 </div>
-              </div>
-            )}
-
-            {viewSeparado.estado === 'Pendiente' && parseFloat(viewSeparado.saldo_pendiente) <= 0 && (
-              <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #bbf7d0' }}>
-                 <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#166534' }}>¡Saldo Completado! Registra y entrega de inventario.</p>
-                 <select value={cajeroId} onChange={e => setCajeroId(e.target.value)} style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}>
-                    <option value="">-- Seleccionar Cajero Autorizado --</option>
-                    {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                 </select>
-                 <button className="btn-primary" style={{ width: '100%', background: '#10b981' }} onClick={handleCompletar}>Completar Venta y Entregar Mercancía</button>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
-               {viewSeparado.estado === 'Pendiente' ? (
-                  <button onClick={handleAnular} style={{ background: 'none', border: 'none', color: '#ef4444', textDecoration: 'underline', cursor: 'pointer' }}>Anular Separado</button>
-               ) : <div/>}
-               <div style={{ display: 'flex', gap: '1rem' }}>
-                 <button className="btn-primary" style={{ backgroundColor: '#0f172a', border: 'none' }} onClick={handlePrintSeparado}>
-                   🖨️ Imprimir Recibo
-                 </button>
-                 <button className="btn-secondary" onClick={() => setViewSeparado(null)}>Cerrar</button>
-               </div>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-
+      {/* PRINT TICKET: hidden per definition */}
       {facturaPrintData && (
-        <div className="printable-receipt print-only" style={{fontFamily: 'monospace', color: 'black'}}>
-          <div className="receipt-header print-only" style={{ marginBottom: '1rem', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '0.2rem', fontWeight: 'bold' }}>{empresa.nombre_empresa || "MI EMPRESA"}</h2>
-            <h4 style={{ margin: '0.2rem 0', fontWeight: 'bold' }}>RECIBO DE CAJA VOLANTE</h4>
-            {empresa.nit && <p style={{ fontSize: '0.9rem', margin: '0' }}>NIT: {empresa.nit}</p>}
-            <p style={{ fontSize: '0.9rem', margin: '0', fontWeight: 'bold' }}>No responsable de IVA</p>
-            {empresa.direccion && <p style={{ fontSize: '0.85rem', margin: '0' }}>Dir: {empresa.direccion}</p>}
-            <p style={{ fontSize: '0.85rem', margin: '0' }}>
-               {empresa.telefono && <span>Cel: {empresa.telefono}</span>}
-               {empresa.telefono && empresa.correo && <span> | </span>}
-               {empresa.correo && <span>Correo: {empresa.correo}</span>}
-            </p>
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-            <p style={{ fontSize: '0.9rem', margin: '0' }}>Ticket No. {facturaPrintData.cabecera.id}</p>
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-          </div>
-          
-          <table style={{ width: '100%', fontSize: '12px', marginBottom: '1rem', borderCollapse: 'collapse' }}>
-            <thead style={{ borderBottom: '1px dashed black', borderTop: '1px dashed black' }}>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Cant</th>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Itm</th>
-                <th style={{ textAlign: 'right', padding: '4px 0' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {facturaPrintData.detalles.map((d: any, i: number) => (
-                <tr key={i}>
-                  <td style={{ padding: '4px 0', verticalAlign: 'top' }}>{d.cantidad}</td>
-                  <td style={{ padding: '4px 0' }}>
-                     <div>{d.nombre}</div>
-                     {d.referencia && <div style={{fontSize: '10px'}}>{d.referencia}</div>}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '4px 0', verticalAlign: 'top' }}>{formatCOP(d.cantidad * d.precio_unitario)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="print-only">------------------------------------</p>
-
-          <div style={{ paddingTop: '5px', marginTop: '5px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>
-              <span>TOTAL:</span>
-              <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
+        <div className="print-only p-8 text-black font-mono leading-tight space-y-4">
+            <div className="text-center space-y-1">
+                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
+                <p className="text-[10px] uppercase font-bold tracking-widest mt-4">Comprobante de Entrega</p>
+                <div className="py-2 border-y border-dashed border-black my-4 text-sm font-bold uppercase">Factura No. {facturaPrintData.cabecera.id}</div>
             </div>
             
-            <div className="print-only" style={{ marginTop: '1.5rem', fontSize: '12px', textAlign: 'left' }}>
-              <p style={{ margin: '4px 0' }}><strong>Fecha Original:</strong> {new Date(facturaPrintData.cabecera.fecha).toLocaleString()}</p>
-              <p style={{ margin: '4px 0' }}><strong>Forma de pago:</strong> {facturaPrintData.cabecera.metodo_pago}</p>
-              <p style={{ margin: '4px 0' }}><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente || "Casual"}</p>
-              <p style={{ margin: '4px 0' }}><strong>Cajero Vendedor:</strong> {facturaPrintData.cabecera.cajero || "Principal"}</p>
-              
-              <div style={{ margin: '15px 0 5px 0', borderTop: '1px dashed #ccc', paddingTop: '10px', whiteSpace: 'pre-wrap', textAlign: 'center', fontSize: '11px' }}>
-                {empresa.resolucion || "Resolución DIAN Autorizada"}
-              </div>
-              <p style={{ textAlign: 'center', marginTop: '10px' }}>¡Gracias por su compra!</p>
+            <table className="w-full text-xs">
+                 <tbody>
+                    {facturaPrintData.detalles.map((d: any, i: number) => (
+                        <tr key={i}>
+                            <td className="py-1 align-top">{d.cantidad}x</td>
+                            <td className="py-1 uppercase font-bold text-left">{d.nombre}</td>
+                            <td className="text-right py-1 align-top font-bold">{formatCOP(d.cantidad * d.precio_unitario)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            <div className="pt-4 border-t border-dashed border-black space-y-2">
+                <div className="flex justify-between font-bold text-lg">
+                    <span>LIQUIDADO:</span>
+                    <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
+                </div>
+                <div className="text-[10px] space-y-1 mt-6">
+                    <p><strong>Cajero:</strong> {facturaPrintData.cabecera.cajero}</p>
+                    <p><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente}</p>
+                </div>
+                <p className="text-center text-[10px] pt-8 opacity-50 italic uppercase">Gracias por confiar en nosotros</p>
             </div>
-          </div>
         </div>
       )}
-      
+
       {separadoPrintData && (
-        <div className="printable-receipt print-only" style={{fontFamily: 'monospace', color: 'black'}}>
-          <div className="receipt-header print-only" style={{ marginBottom: '1rem', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '0.2rem', fontWeight: 'bold' }}>{empresa.nombre_empresa || "MI EMPRESA"}</h2>
-            <h4 style={{ margin: '0.2rem 0', fontWeight: 'bold' }}>ESTADO DE SEPARADO</h4>
-            {empresa.nit && <p style={{ fontSize: '0.9rem', margin: '0' }}>NIT: {empresa.nit}</p>}
-            {empresa.direccion && <p style={{ fontSize: '0.85rem', margin: '0' }}>Dir: {empresa.direccion}</p>}
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-            <p style={{ fontSize: '0.9rem', margin: '0' }}>Separado No. {separadoPrintData.separado.id}</p>
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-          </div>
-          
-          <div style={{ fontSize: '12px', marginBottom: '1rem' }}>
-            <p style={{ margin: '4px 0' }}><strong>Cliente:</strong> {separadoPrintData.separado.cliente_nombre || "Casual"} {separadoPrintData.separado.cliente_documento ? `(${separadoPrintData.separado.cliente_documento})` : ''}</p>
-            <p style={{ margin: '4px 0' }}><strong>Fecha Inicio:</strong> {new Date(separadoPrintData.separado.fecha_creacion).toLocaleString()}</p>
-            <p style={{ margin: '4px 0' }}><strong>Estado Local:</strong> {separadoPrintData.separado.estado}</p>
-          </div>
+        <div className="print-only p-8 text-black font-mono leading-tight space-y-6">
+            <div className="text-center">
+                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
+                <p className="text-sm">NIT: {empresa.nit || "—"}</p>
+                <div className="bg-black text-white p-2 mt-4 text-sm font-bold uppercase tracking-widest">Estado de Separado #{separadoPrintData.separado.id}</div>
+            </div>
 
-          <p style={{ margin: '0.5rem 0', fontSize: '12px', fontWeight: 'bold' }}>PRODUCTOS SEPARADOS</p>
-          <table style={{ width: '100%', fontSize: '12px', marginBottom: '1rem', borderCollapse: 'collapse' }}>
-            <thead style={{ borderBottom: '1px dashed black', borderTop: '1px dashed black' }}>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Cant</th>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Itm</th>
-                <th style={{ textAlign: 'right', padding: '4px 0' }}>Sub</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const items = typeof separadoPrintData.separado.detalles_json === 'string' ? JSON.parse(separadoPrintData.separado.detalles_json) : separadoPrintData.separado.detalles_json;
-                return items.map((itm: any, idx: number) => (
-                  <tr key={idx}>
-                    <td style={{ padding: '4px 0', verticalAlign: 'top' }}>{itm.qty || itm.cantidad}</td>
-                    <td style={{ padding: '4px 0' }}>
-                        <div>{itm.nombre}</div>
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '4px 0', verticalAlign: 'top' }}>{formatCOP(itm.precio_venta * (itm.qty || itm.cantidad))}</td>
-                  </tr>
-                ));
-              })()}
-            </tbody>
-          </table>
+            <div className="text-[11px] space-y-1 border-b border-dashed border-black pb-4">
+                <p><strong>Cliente:</strong> {separadoPrintData.separado.cliente_nombre}</p>
+                <p><strong>Documento:</strong> {separadoPrintData.separado.cliente_documento}</p>
+                <p><strong>Fecha Inicio:</strong> {new Date(separadoPrintData.separado.fecha_creacion).toLocaleString()}</p>
+            </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px' }}>
-            <span>TOTAL SEPARADO:</span>
-            <span>{formatCOP(separadoPrintData.separado.total)}</span>
-          </div>
+            <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest">Detalle Lote Retenido:</p>
+                <table className="w-full text-[10px]">
+                    <tbody>
+                        {(() => {
+                            const items = typeof separadoPrintData.separado.detalles_json === 'string' ? JSON.parse(separadoPrintData.separado.detalles_json) : separadoPrintData.separado.detalles_json;
+                            return items.map((itm: any, idx: number) => (
+                                <tr key={idx} className="border-b border-slate-100">
+                                    <td className="py-1">x{itm.qty || itm.cantidad}</td>
+                                    <td className="py-1 uppercase">{itm.nombre}</td>
+                                    <td className="py-1 text-right font-black">{formatCOP(itm.precio_venta * (itm.qty || itm.cantidad))}</td>
+                                </tr>
+                            ));
+                        })()}
+                    </tbody>
+                </table>
+            </div>
 
-          <p style={{ margin: '0.5rem 0', fontSize: '12px', fontWeight: 'bold', borderTop: '1px dashed black', paddingTop: '5px' }}>HISTORIAL DE ABONOS</p>
-          {separadoPrintData.abonos.length > 0 ? (
-            <table style={{ width: '100%', fontSize: '12px', marginBottom: '1rem', borderCollapse: 'collapse' }}>
-              <tbody>
-                {separadoPrintData.abonos.map((a: any) => (
-                  <tr key={a.id}>
-                    <td style={{ padding: '2px 0' }}>{new Date(a.fecha_abono).toLocaleDateString()}</td>
-                    <td style={{ textAlign: 'right', padding: '2px 0' }}>+{formatCOP(a.monto)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p style={{ fontSize: '12px', marginBottom: '1rem' }}>Sin historial de abonos.</p>
-          )}
+            <div className="pt-4 border-t border-dashed border-black space-y-3">
+                <div className="flex justify-between text-xs">
+                    <span>VALOR TOTAL:</span>
+                    <span className="font-bold">{formatCOP(separadoPrintData.separado.total)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-700">
+                    <span>TOTAL ABONADO:</span>
+                    <span className="font-bold">+{formatCOP(parseFloat(separadoPrintData.separado.total) - parseFloat(separadoPrintData.separado.saldo_pendiente))}</span>
+                </div>
+                <div className="flex justify-between font-black text-lg border-t-2 border-black pt-2">
+                    <span>SALDO PENDIENTE:</span>
+                    <span>{formatCOP(separadoPrintData.separado.saldo_pendiente)}</span>
+                </div>
+            </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', borderTop: '1px dashed black', paddingTop: '5px', marginBottom: '5px' }}>
-            <span>TOTAL PAGADO:</span>
-            <span>{formatCOP(parseFloat(separadoPrintData.separado.total) - parseFloat(separadoPrintData.separado.saldo_pendiente))}</span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', borderTop: '1px dashed black', paddingTop: '5px' }}>
-            <span>SALDO PENDIENTE:</span>
-            <span>{formatCOP(separadoPrintData.separado.saldo_pendiente)}</span>
-          </div>
-          
-          <div className="print-only" style={{ marginTop: '1.5rem', fontSize: '11px', textAlign: 'center' }}>
-            <p>¡Gracias por su separación!</p>
-            <p>Por favor conserve este recibo para cualquier reclamo o para realizar los siguientes abonos.</p>
-          </div>
+            <div className="text-center text-[9px] pt-10 opacity-60">
+                Guarde este recibo para futuros abonos o retiro de mercancía.
+                <p className="mt-2 font-bold uppercase tracking-widest">¡Gracias por su compra!</p>
+            </div>
         </div>
       )}
 

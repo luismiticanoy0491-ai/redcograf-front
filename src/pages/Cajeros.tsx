@@ -1,12 +1,12 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
 
 function Cajeros() {
-  const [cajeros, setCajeros] = useState([]);
+  const [cajeros, setCajeros] = useState<any[]>([]);
   
   // States for form
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     nombre: "",
     documento: "",
@@ -26,7 +26,7 @@ function Cajeros() {
     fetchCajeros();
   }, []);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -42,7 +42,7 @@ function Cajeros() {
     });
   };
 
-  const handleEdit = (c) => {
+  const handleEdit = (c: any) => {
     setEditingId(c.id);
     setFormData({
       nombre: c.nombre || "",
@@ -57,28 +57,26 @@ function Cajeros() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nombre) return alert("Nombre obligatorio");
     
     try {
       if (editingId) {
         await API.put(`/cajeros/${editingId}`, formData);
-        alert("✅ Perfil de empleado actualizado");
       } else {
         await API.post("/cajeros", formData);
-        alert("✅ Cajero registrado como nuevo empleado");
       }
       resetForm();
       fetchCajeros();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Error guardando el registro del cajero: " + (error.response?.data?.error || error.message));
+      alert("Error: " + (error.response?.data?.error || error.message));
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("⚠️ ¿Eliminar permanentemente a este empleado del sistema?")) return;
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("⚠️ ¿Dar de baja a este empleado?")) return;
     try {
       await API.delete(`/cajeros/${id}`);
       fetchCajeros();
@@ -88,137 +86,145 @@ function Cajeros() {
   };
 
   return (
-    <div className="fade-in" style={{ padding: '0 1rem' }}>
-      <div className="header-section">
-        <h2>Recursos Humanos: Personal y Comisiones</h2>
-        <p>Administra los perfiles, nómina básica y esquemas de comisión de tu equipo autorizado para operar cajas.</p>
+    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700 pb-20">
+      
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 pb-8 border-b border-slate-200">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+            Gestión de Talento
+          </h1>
+          <p className="text-slate-500 font-medium text-lg italic">Control de nómina, comisiones y perfiles autorizados para caja.</p>
+        </div>
       </div>
 
-      <div className="grid-container" style={{gridTemplateColumns: '1fr 2fr', gap: '1.5rem', alignItems: 'start'}}>
-        <div className="card form-card">
-          <h3 style={{marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', color: '#0f172a'}}>
-            {editingId ? "✏️ Editando Perfil de Empleado" : "➕ Registrar Empleado"}
-          </h3>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Nombre Completo *</label>
-              <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Ej. Ana Pérez" required />
-            </div>
-            
-            <div className="form-group" style={{marginTop: '0.5rem'}}>
-              <label>Documento de Identidad</label>
-              <input type="text" name="documento" value={formData.documento} onChange={handleChange} placeholder="CC o NIT" />
-            </div>
-            
-            <div style={{display: 'flex', gap: '0.5rem', marginTop: '0.5rem'}}>
-              <div className="form-group" style={{flex: 1}}>
-                <label>Teléfono</label>
-                <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} placeholder="Móvil" />
-              </div>
-              <div className="form-group" style={{flex: 1}}>
-                <label>F. Contratación</label>
-                <input type="date" name="fecha_contrato" value={formData.fecha_contrato} onChange={handleChange} />
-              </div>
-            </div>
-
-            <div className="form-group" style={{marginTop: '0.5rem'}}>
-              <label>Dirección de Residencia</label>
-              <input type="text" name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Dirección completa" />
-            </div>
-
-            <div className="form-group" style={{marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0'}}>
-              <label style={{color: '#0f172a', fontWeight: 'bold'}}>💰 Salario a Pagar (Mensual/Quincenal)</label>
-              <input 
-                 type="number" 
-                 name="salario" 
-                 value={formData.salario} 
-                 onChange={handleChange} 
-                 placeholder="Ej. 1500000" 
-                 style={{fontSize: '1.1rem', backgroundColor: '#f0f9ff', borderColor: '#bae6fd'}} 
-              />
-            </div>
-
-            <div className="form-group" style={{marginTop: '1rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
-              <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: '#166534', cursor: 'pointer', margin: 0}}>
-                <input type="checkbox" name="paga_comisiones" checked={formData.paga_comisiones} onChange={handleChange} style={{width: 'auto', accentColor: '#16a34a'}} />
-                Activar Pago de Comisiones
-              </label>
-              
-              {formData.paga_comisiones && (
-                <div style={{marginTop: '0.8rem', animation: 'fadeIn 0.3s'}}>
-                  <label style={{color: '#64748b', fontSize: '0.85rem'}}>Porcentaje (%) sobre la venta:</label>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                    <input type="number" step="0.1" name="porcentaje_comision" value={formData.porcentaje_comision} onChange={handleChange} style={{flex: 1}} placeholder="Ej. 5.0" />
-                    <span style={{fontWeight: 'bold', color: '#64748b'}}>%</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{display: 'flex', gap: '0.5rem', marginTop: '1.5rem'}}>
-              {editingId && (
-                 <button type="button" className="btn-secondary" style={{flex: 1}} onClick={resetForm}>Cancelar</button>
-              )}
-              <button type="submit" className="btn-primary" style={{flex: editingId ? 1 : '1 1 auto', backgroundColor: editingId ? '#0ea5e9' : ''}}>
-                {editingId ? "💾 Guardar Cambios" : "+ Cargar a Nómina"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div className="card table-card" style={{overflowX: 'auto', backgroundColor: 'white'}}>
-          <h3 style={{marginBottom: '1rem', color: '#0f172a'}}>Nómina y Personal Activo ({cajeros.length})</h3>
-          <table className="modern-table" style={{minWidth: '600px'}}>
-            <thead>
-               <tr>
-                 <th>Empleado</th>
-                 <th>Contacto</th>
-                 <th>Contratación</th>
-                 <th>Salario Base</th>
-                 <th style={{textAlign: 'center'}}>Comisiones</th>
-                 <th style={{textAlign: 'center'}}>Gestión</th>
-               </tr>
-            </thead>
-            <tbody>
-              {cajeros.map(c => (
-                <tr key={c.id} className="row-hover">
-                  <td>
-                    <div style={{fontWeight: '900', color: '#0f172a', fontSize: '1rem'}}>{c.nombre}</div>
-                    <div style={{fontSize: '0.8rem', color: '#64748b'}}>ID: {c.documento || "N/A"}</div>
-                  </td>
-                  <td style={{fontSize: '0.85rem'}}>
-                    <div style={{fontWeight: 'bold', color: '#334155'}}>📞 {c.telefono || '-'}</div>
-                    <div style={{color: '#64748b', maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={c.direccion}>{c.direccion || '-'}</div>
-                  </td>
-                  <td style={{fontSize: '0.85rem', color: '#475569'}}>
-                    {c.fecha_contrato ? new Date(c.fecha_contrato).toLocaleDateString() : <span style={{color: '#94a3b8'}}>No definida</span>}
-                  </td>
-                  <td style={{fontWeight: 'bold', color: '#0369a1'}}>
-                    {c.salario > 0 ? formatCOP(c.salario) : <span style={{color: '#94a3b8'}}>-</span>}
-                  </td>
-                  <td style={{textAlign: 'center'}}>
-                    {c.paga_comisiones ? (
-                       <span style={{backgroundColor: '#dcfce7', color: '#166534', padding: '0.3rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 'bold'}}>
-                         Sí ({c.porcentaje_comision}%)
-                       </span>
-                    ) : (
-                       <span style={{backgroundColor: '#f1f5f9', color: '#64748b', padding: '0.3rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem'}}>
-                         No
-                       </span>
-                    )}
-                  </td>
-                  <td style={{textAlign: 'center'}}>
-                    <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'center'}}>
-                       <button className="btn-secondary" style={{padding: '0.3rem 0.6rem', color: '#0ea5e9', borderColor: '#0ea5e9', backgroundColor: 'transparent'}} onClick={() => handleEdit(c)} title="Editar Empleado">✏️</button>
-                       <button className="btn-secondary" style={{padding: '0.3rem 0.6rem', color: '#ef4444', borderColor: '#ef4444', backgroundColor: '#fef2f2'}} onClick={() => handleDelete(c.id)} title="Dar de baja">🗑️</button>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+        
+        {/* Form Column */}
+        <div className="xl:col-span-4">
+            <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm sticky top-8">
+                <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-sky-600 rounded-full"></span> 
+                    {editingId ? "Editar Colaborador" : "Nuevo Colaborador"}
+                </h3>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
+                        <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all border-sky-100" />
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {cajeros.length === 0 && <tr><td colSpan={6} className="text-center" style={{padding: '3rem', color: '#94a3b8'}}>No hay personal registrado en el sistema.</td></tr>}
-            </tbody>
-          </table>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Documento / CC</label>
+                            <input type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">F. Ingreso</label>
+                            <input type="date" name="fecha_contrato" value={formData.fecha_contrato} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</label>
+                            <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Salario Base</label>
+                            <input type="number" name="salario" value={formData.salario} onChange={handleChange} className="w-full px-5 py-3 bg-sky-50 border border-sky-100 rounded-2xl font-black text-sky-700 outline-none focus:bg-white focus:ring-4 focus:ring-sky-50 transition-all" />
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                             <div className="relative">
+                                <input type="checkbox" name="paga_comisiones" checked={formData.paga_comisiones} onChange={handleChange} className="sr-only peer" />
+                                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                             </div>
+                             <span className="text-xs font-black text-slate-700 uppercase tracking-widest group-hover:text-emerald-700 transition-colors">Ventas por Comisión</span>
+                        </label>
+                        
+                        {formData.paga_comisiones && (
+                            <div className="animate-in slide-in-from-top-2 duration-300">
+                                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1 block mb-2">% de Ganancia</label>
+                                <div className="relative">
+                                    <input type="number" step="0.1" name="porcentaje_comision" value={formData.porcentaje_comision} onChange={handleChange} className="w-full px-5 py-3 bg-white border border-emerald-200 rounded-2xl font-black text-emerald-700 outline-none" placeholder="0.0" />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-emerald-300">%</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-4">
+                        {editingId && (
+                            <button type="button" onClick={resetForm} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                        )}
+                        <button type="submit" className="flex-[2] py-4 bg-slate-900 text-white rounded-3xl font-black shadow-xl hover:bg-slate-800 hover:-translate-y-1 transition-all uppercase tracking-widest text-xs">
+                            {editingId ? "💾 Actualizar Perfil" : "👤 Dar de Alta"}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
+
+        {/* List Column */}
+        <div className="xl:col-span-8">
+            <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="w-2 h-6 bg-slate-900 rounded-full"></span> Planta de Personal
+                    </h3>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-1 rounded-full">{cajeros.length} Empleados</span>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50/50">
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Colaborador</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Vinculación</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Compensación</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Esquema</th>
+                                <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {cajeros.map(c => (
+                                <tr key={c.id} className="group hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-8 py-6">
+                                        <div className="font-black text-slate-900 uppercase leading-tight group-hover:text-sky-600 transition-colors">{c.nombre}</div>
+                                        <div className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-tighter">ID: {c.documento || "—"}</div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <div className="text-xs font-bold text-slate-600 italic">
+                                            {c.fecha_contrato ? new Date(c.fecha_contrato).toLocaleDateString() : 'Indefinido'}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <div className="font-black text-slate-900">{formatCOP(c.salario)}</div>
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Mensual</div>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        {c.paga_comisiones ? (
+                                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-black uppercase tracking-tighter">Comisión {c.porcentaje_comision}%</span>
+                                        ) : (
+                                            <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-tighter">Fijo</span>
+                                        )}
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={() => handleEdit(c)} className="w-10 h-10 rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-sky-600 hover:border-sky-100 hover:shadow-lg transition-all font-bold">✏️</button>
+                                            <button onClick={() => handleDelete(c.id)} className="w-10 h-10 rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 hover:shadow-lg transition-all font-bold">🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
       </div>
     </div>
   );

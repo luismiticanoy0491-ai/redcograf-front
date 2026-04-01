@@ -42,7 +42,6 @@ function IngresoProductos() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [mensajeEstado, setMensajeEstado] = useState("");
 
-  // Load drafts from API
   const fetchDrafts = async () => {
     try {
       const res = await API.get("/borradores");
@@ -72,7 +71,7 @@ function IngresoProductos() {
       }));
       setMensajeEstado("✅ PRODUCTO EXISTENTE CARGADO");
       setTimeout(() => setMensajeEstado(""), 4000);
-    } catch (error) {
+    } catch (error: any) {
       if (error.response && error.response.status === 404) {
         setMensajeEstado("⚠️ CREAR NUEVO PRODUCTO");
         setFormData(prev => ({
@@ -108,7 +107,6 @@ function IngresoProductos() {
     setFormData(prev => {
       let newState = { ...prev, [name]: value };
       
-      // Auto-recalcular venta cuando cambia costo o ganancia
       if (name === 'precio_compra' || name === 'porcentaje_ganancia') {
         const pcStr = name === 'precio_compra' ? value : prev.precio_compra;
         const ganStr = name === 'porcentaje_ganancia' ? value : prev.porcentaje_ganancia;
@@ -117,7 +115,6 @@ function IngresoProductos() {
         newState.precio_venta = Math.round(pc + (pc * ganancia) / 100).toString();
       }
       
-      // Si el humano escribe manualmente el precio de venta, recalcular porcentaje (pero sin decimales en PV)
       if (name === 'precio_venta') {
         const pc = parseFloat(prev.precio_compra.toString()) || 0;
         const pv = parseFloat(value) || 0;
@@ -146,8 +143,8 @@ function IngresoProductos() {
       cantidad: parseInt(formData.cantidad.toString(), 10),
       precio_compra: parseFloat(formData.precio_compra.toString()) || 0,
       porcentaje_ganancia: parseFloat(formData.porcentaje_ganancia.toString()) || 0,
-      precio_venta: Math.round(parseFloat(formData.precio_venta.toString()) || 0), // Eliminamos decimales
-      inyectado: false // Flag para inyección viva al inventario
+      precio_venta: Math.round(parseFloat(formData.precio_venta.toString()) || 0),
+      inyectado: false
     };
 
     setProductosIngresados([nuevoProducto, ...productosIngresados]);
@@ -158,13 +155,13 @@ function IngresoProductos() {
     if (productosIngresados.length === 0) return alert("Añade al menos un producto a la lista temporal.");
     setIsSavingDraft(true);
     try {
-      if (currentDraftId) await API.delete(`/borradores/${currentDraftId}`); // Erase old to avoid dupes on manual update
+      if (currentDraftId) await API.delete(`/borradores/${currentDraftId}`);
       const res = await API.post("/borradores", {
         proveedor: proveedor,
         numero_factura: numeroFactura,
         datos_json: productosIngresados
       });
-      alert("📝 Borrador de factura guardado. Los productos agregados ya están disponibles para la venta en el sistema.");
+      alert("📝 Borrador guardado exitosamente.");
       let savedData = res.data.datos_json || res.data.detalles;
       if (typeof savedData === 'string') {
         try { savedData = JSON.parse(savedData); } catch (e) {}
@@ -183,7 +180,6 @@ function IngresoProductos() {
     if (productosIngresados.length === 0) return;
     setIsSavingBatch(true);
     try {
-      // Calculate total to save with invoice
       const granTotal = productosIngresados.reduce((acc, curr) => acc + (parseFloat(curr.precio_compra.toString()) * curr.cantidad), 0);
 
       await API.post("/compras", {
@@ -194,7 +190,6 @@ function IngresoProductos() {
       });
       alert("✅ Factura completada y enviada a la Base de Datos central.");
 
-      // Clean up draft if this stemmed from one
       if (currentDraftId) {
         await API.delete(`/borradores/${currentDraftId}`);
       }
@@ -239,17 +234,16 @@ function IngresoProductos() {
   const removeItem = async (index: number) => {
     const item = productosIngresados[index];
     if (item.inyectado) {
-       const confirm = window.confirm("⚠️ Este producto ya fue sumado al inventario general para su venta. ¿Deseas descontar su cantidad de la base de datos para no afectar tu stock real?");
+       const confirm = window.confirm("⚠️ Este producto ya fue sumado al inventario general. ¿Deseas descontar su cantidad de la base de datos?");
        if (confirm) {
            try {
                await API.post("/productos/revertir-stock", { referencia: item.referencia, nombre: item.nombre, cantidad: item.cantidad });
                alert("✅ Stock descontado de la base de datos.");
            } catch(e) {
                console.error(e);
-               return alert("❌ Error al descontar stock. Por seguridad no se removió el artículo del borrador.");
+               return alert("❌ Error al descontar stock.");
            }
        } else {
-           // Si el usuario cancela, no borramos el ítem para evitar inconsistencias de inventario
            return;
        }
     }
@@ -262,228 +256,229 @@ function IngresoProductos() {
   const valorVentaTotal = productosIngresados.reduce((total, p) => total + (parseFloat(p.precio_venta.toString()) * parseFloat(p.cantidad.toString())), 0);
 
   const handleDownloadBackup = () => {
-    // Usar la base URL dinámica según esté configurado en `api.js` local o red
     const baseURL = API.defaults.baseURL || "http://localhost:4000";
     window.location.href = `${baseURL}/backup/download`;
   };
 
   return (
-    <div className="pos-layout fade-in" style={{ backgroundColor: 'var(--bg-color)' }}>
-      {/* LADO IZQUIERDO: FORMULARIO SCROLLABLE */}
-      <div className="pos-catalog no-print" style={{ paddingBottom: '4rem', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="header-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-        <div>
-          <h2>Facturación de Ingresos</h2>
-          <p>Administra lotes de ingreso, facturas pendientes e inyéctalas al inventario.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button onClick={handleDownloadBackup} className="btn-primary" style={{ padding: '0.75rem 1rem', borderRadius: '8px', backgroundColor: '#10b981', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }} title="Genera un archivo con toda tu información en un click">
-            💾 Descargar Copia de Seguridad
-          </button>
-          <button onClick={() => setShowDrafts(!showDrafts)} className="btn-secondary" style={{ padding: '0.75rem 1rem', border: '1px solid var(--primary)', borderRadius: '8px', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold' }}>
-            📂 Ver {draftsList.length} Facturas Pendientes
-          </button>
-        </div>
-      </div>
-
-      {showDrafts && (
-        <div className="card fade-in" style={{ marginBottom: '2rem', borderLeft: '4px solid var(--primary)' }}>
-          <h3>Borradores Pendientes</h3>
-          {draftsList.length === 0 ? <p className="text-muted">No hay borradores guardados.</p> : (
-            <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
-              {draftsList.map(d => (
-                <div key={d.id} style={{ minWidth: '250px', border: '1px solid #ddd', padding: '1rem', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(d.fecha).toLocaleString()}</div>
-                  <div style={{ fontWeight: 'bold', margin: '0.5rem 0' }}>{d.proveedor || "Proveedor sin nombre"}</div>
-                  {d.numero_factura && <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>Factura: {d.numero_factura}</div>}
-                  <button onClick={() => loadDraft(d)} className="btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}>Cargar este progreso</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* FORMULARIO PRINCIPAL */}
-      <div className="card form-card" style={{ marginBottom: '2rem', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-            {currentDraftId ? "🟢 Editando Factura Pendiente" : "1. Datos de Factura/Producto"}
-          </h3>
-
-          <div className="form-row" style={{ marginBottom: '1rem' }}>
-            <div className="form-group">
-              <label>Empresa / Proveedor</label>
-              <input 
-                list="lista-proveedores"
-                type="text" 
-                value={proveedor} 
-                onChange={e => setProveedor(e.target.value)} 
-                placeholder="Ej. TechCorp Ltda. (Busca o escribe)" 
-                style={{ borderColor: 'var(--primary)', borderWidth: '2px' }} 
-              />
-              <datalist id="lista-proveedores">
-                {proveedoresDB.map(p => (
-                  <option key={p.id} value={p.nombre_comercial}>{p.nit ? `NIT: ${p.nit}` : ''}</option>
-                ))}
-              </datalist>
-            </div>
-            <div className="form-group">
-              <label>Número de Factura</label>
-              <input type="text" value={numeroFactura} onChange={e => setNumeroFactura(e.target.value)} placeholder="Ej. FAC-00123" style={{ borderColor: 'var(--primary)', borderWidth: '2px' }} />
-            </div>
-          </div>
-
-          <form onSubmit={handleAddToList} className="ingreso-form" style={{ padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <h4 style={{ marginBottom: '0.5rem', color: '#334155' }}>Línea de Producto</h4>
-            
-            <div className="form-row" style={{ alignItems: 'flex-start' }}>
-              <div className="form-group" style={{ marginBottom: '1rem', flex: 1 }}>
-                <label>Código de Barras / Referencia</label>
-                <input 
-                  list="lista-referencias"
-                  type="text" 
-                  name="referencia" 
-                  value={formData.referencia} 
-                  onChange={handleChange} 
-                  onKeyDown={handleKeyDownReferencia}
-                  onBlur={handleBlurReferencia}
-                  placeholder="Escanea o escribe + Enter" 
-                  autoFocus
-                  style={{ borderColor: mensajeEstado.includes("CREAR") ? '#f59e0b' : mensajeEstado.includes("EXISTENTE") ? '#10b981' : 'var(--primary)' }}
-                />
-                <datalist id="lista-referencias">
-                  {productosDB.map((p, idx) => (
-                    <option key={idx} value={p.referencia || p.nombre}>{p.nombre}</option>
-                  ))}
-                </datalist>
-                {mensajeEstado && (
-                  <span style={{ display: 'block', fontSize: '0.85rem', marginTop: '0.4rem', fontWeight: 'bold', color: mensajeEstado.includes("CREAR") ? '#d97706' : '#059669' }}>
-                    {mensajeEstado}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '1rem', flex: 1 }}>
-                <label>Nombre del Producto</label>
-                <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Ej. Tarjeta Gráfica" required />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Categoría</label>
-                <select name="categoria" value={formData.categoria} onChange={handleChange} required>
-                  <option value="">-- Seleccionar --</option>
-                  <option value="PAPELERIA">PAPELERIA</option>
-                  <option value="JOYERIA">JOYERIA</option>
-                  <option value="MECATO">MECATO</option>
-                  <option value="DETALLES">DETALLES</option>
-                  <option value="PERFUMERIA">PERFUMERIA</option>
-                  <option value="TECNOLOGIA">TECNOLOGIA</option>
-                  <option value="IMPRESIONES-MAQUINAS">IMPRESIONES-MAQUINAS</option>
-                  <option value="Otra">➕ Crear nueva...</option>
-                </select>
-
-                {formData.categoria === "Otra" && (
-                  <input type="text" name="nuevaCategoria" value={formData.nuevaCategoria} onChange={handleChange} placeholder="Nombre de categoría" style={{ marginTop: '0.5rem' }} required />
-                )}
-              </div>
-              <div className="form-group">
-                <label>Cantidad (Stock)</label>
-                <input type="number" name="cantidad" value={formData.cantidad} onChange={handleChange} min="1" required />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Costo de Compra (c/u)</label>
-                <input type="number" step="0.01" name="precio_compra" value={formData.precio_compra} onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label>% Ganancia</label>
-                <input type="number" step="0.1" name="porcentaje_ganancia" value={formData.porcentaje_ganancia} onChange={handleChange} />
-              </div>
-            </div>
-
-            <div className="form-group" style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', borderRadius: '8px', border: '1px solid #7dd3fc', marginBottom: '0.5rem' }}>
-              <label style={{ color: '#0369a1', fontWeight: 'bold' }}>Venta al Público ($ COP)</label>
-              <input 
-                type="number" 
-                name="precio_venta" 
-                value={formData.precio_venta} 
-                onChange={handleChange} 
-                style={{ fontSize: '1.2rem', padding: '0.6rem', fontWeight: 'bold', borderColor: '#0ea5e9', borderStyle: 'dashed' }}
-                required 
-              />
-            </div>
-
-            <button type="submit" className="full-width" style={{ backgroundColor: "white", color: "var(--primary)", border: "2px dashed var(--primary)", padding: "0.75rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600", marginTop: "0.5rem" }}>
-              ⬇ Agregar artículo al lote
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* LADO DERECHO: VISTA DE LOTE FIJO */}
-      <div className="pos-cart-panel" style={{ backgroundColor: 'white', borderLeft: '1px solid #e2e8f0', boxShadow: '-4px 0 15px rgba(0,0,0,0.02)' }}>
-        <h3 style={{ borderBottom: '1px solid #ddd', paddingBottom: '1rem', marginBottom: '1rem' }}>📦 Lote de Ingreso ({productosIngresados.length})</h3>
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)] gap-6 animate-in fade-in duration-500 overflow-hidden pb-10">
+      
+      {/* LEFT: Management & Form */}
+      <div className="flex-1 overflow-y-auto pr-2 space-y-8 scrollbar-none">
         
-        <div className="cart-items-container" style={{ flex: '1', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <table className="modern-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Cant</th>
-                  <th>Costo</th>
-                  <th>Venta</th>
-                  <th>X</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productosIngresados.length === 0 ? (
-                  <tr><td colSpan={5} className="empty-state">No has escaneado/ingresado productos.</td></tr>
-                ) : (
-                  productosIngresados.map((p: ProductoIngresado, index: number) => (
-                    <tr key={index}>
-                      <td>
-                        <span className="product-name">{p.nombre}</span>
-                        {p.referencia && <span style={{ fontSize: '0.75rem', color: '#888' }}>{p.referencia}</span>}<br />
-                        <span className="badge category-badge">{p.categoria}</span>
-                      </td>
-                      <td>{p.cantidad} {p.inyectado && <span title="Ya sumado en el inventario real para la venta" style={{ cursor: 'help', fontSize: '0.8rem' }}>✅</span>}</td>
-                      <td>{formatCOP(p.precio_compra)}</td>
-                      <td>{formatCOP(p.precio_venta)}</td>
-                      <td>
-                        <button onClick={() => removeItem(index)} style={{ color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>✖</button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-slate-200">
+            <div className="space-y-1">
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+                    Suministro de Inventario
+                </h1>
+                <p className="text-slate-500 font-medium text-lg italic">Registra entradas masivas de mercancía y controla tus costos.</p>
+            </div>
+            <div className="flex gap-3 no-print">
+                <button onClick={handleDownloadBackup} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 font-black text-xs rounded-2xl shadow-sm hover:shadow-xl hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2">
+                   💾 Backup Global
+                </button>
+                <button onClick={() => setShowDrafts(!showDrafts)} className="px-6 py-3 bg-indigo-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all uppercase tracking-widest">
+                   📂 Pendientes ({draftsList.length})
+                </button>
+            </div>
         </div>
 
-        {/* FOOTER ADHERIDO A LA RAMA DERECHA */}
-        <div className="cart-summary" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}>
-          <div className="totals-footer" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <div className="stat-box" style={{ flex: 1, backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Costo Total Lote:</span>
-              <h3 style={{ margin: '0.5rem 0 0 0', color: '#0f172a' }}>{formatCOP(valorTotalIngresados)}</h3>
-            </div>
-            <div className="stat-box highlight" style={{ flex: 1, backgroundColor: '#f0fdf4', padding: '1rem', borderRadius: '8px' }}>
-              <span style={{ fontSize: '0.8rem', color: '#166534' }}>Venta Proyectada:</span>
-              <h3 style={{ margin: '0.5rem 0 0 0', color: '#15803d' }}>{formatCOP(valorVentaTotal)}</h3>
-            </div>
+        {showDrafts && (
+          <div className="bg-indigo-50/50 p-8 rounded-[40px] border border-indigo-100 animate-in slide-in-from-top-4 duration-500">
+            <h3 className="text-lg font-black text-indigo-900 mb-6 flex items-center gap-2">
+                <span className="w-2 h-6 bg-indigo-600 rounded-full"></span> Lotes Guardados Temporalmente
+            </h3>
+            {draftsList.length === 0 ? <p className="text-indigo-400 font-bold italic">No hay borradores guardados.</p> : (
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+                {draftsList.map(d => (
+                  <button key={d.id} onClick={() => loadDraft(d)} className="min-w-[280px] bg-white p-6 rounded-3xl border border-indigo-100 shadow-sm text-left hover:shadow-xl hover:-translate-y-1 transition-all group">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{new Date(d.fecha).toLocaleString()}</div>
+                    <div className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase leading-tight">{d.proveedor || "Sin Proveedor"}</div>
+                    {d.numero_factura && <div className="text-xs font-bold text-slate-500 mt-1">Ref: {d.numero_factura}</div>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+        )}
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={handleSaveDraft} disabled={isSavingDraft} style={{ flex: 1, padding: '1rem', fontSize: '0.9rem', borderRadius: '8px', cursor: 'pointer', backgroundColor: '#e2e8f0', color: '#0f172a', fontWeight: 'bold', border: 'none' }}>
-              {isSavingDraft ? "Guardando..." : "📄 Guardar Borrador"}
-            </button>
-            <button onClick={handleSaveBatch} disabled={isSavingBatch || productosIngresados.length === 0} style={{ flex: 1.5, padding: '1rem', fontSize: '1rem', backgroundColor: productosIngresados.length === 0 ? '#94a3b8' : 'var(--success)', color: 'white', border: 'none', borderRadius: '8px', cursor: productosIngresados.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', boxShadow: productosIngresados.length > 0 ? '0 4px 14px rgba(16, 185, 129, 0.3)' : 'none' }}>
-              {isSavingBatch ? "Procesando..." : `✅ Finalizar Ingreso`}
-            </button>
-          </div>
+        <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm space-y-10">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Empresa Proveedora</label>
+                    <input 
+                        list="lista-proveedores"
+                        type="text" 
+                        value={proveedor} 
+                        onChange={e => setProveedor(e.target.value)} 
+                        placeholder="Ej. Distribuidora Central..." 
+                        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-[24px] font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 transition-all uppercase"
+                    />
+                    <datalist id="lista-proveedores">
+                        {proveedoresDB.map(p => (
+                        <option key={p.id} value={p.nombre_comercial}>{p.nit ? `NIT: ${p.nit}` : ''}</option>
+                        ))}
+                    </datalist>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1"># de Factura Física</label>
+                    <input type="text" value={numeroFactura} onChange={e => setNumeroFactura(e.target.value)} placeholder="Ej. FV-10022" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-[24px] font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 transition-all uppercase" />
+                </div>
+            </div>
+
+            <form onSubmit={handleAddToList} className="bg-slate-50/50 p-8 rounded-[36px] border border-slate-100 space-y-8">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">Agregar Item a Factura</h4>
+                    {mensajeEstado && <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${mensajeEstado.includes("EXISTENTE") ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{mensajeEstado}</span>}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Código SKU / Barras</label>
+                        <input 
+                            list="lista-referencias"
+                            type="text" 
+                            name="referencia" 
+                            value={formData.referencia} 
+                            onChange={handleChange} 
+                            onKeyDown={handleKeyDownReferencia}
+                            onBlur={handleBlurReferencia}
+                            placeholder="Escanea o escribe + Enter..." 
+                            className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-black text-indigo-600 outline-none transition-all placeholder:text-slate-300"
+                        />
+                        <datalist id="lista-referencias">
+                        {productosDB.map((p, idx) => (
+                            <option key={idx} value={p.referencia || p.nombre}>{p.nombre}</option>
+                        ))}
+                        </datalist>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Nombre del Artículo</label>
+                        <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Ej. Perfume X 100ml" required className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none transition-all" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Categoría</label>
+                        <select name="categoria" value={formData.categoria} onChange={handleChange} required className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none appearance-none">
+                            <option value="">-- Escoger --</option>
+                            <option value="PAPELERIA">PAPELERIA</option>
+                            <option value="JOYERIA">JOYERIA</option>
+                            <option value="MECATO">MECATO</option>
+                            <option value="DETALLES">DETALLES</option>
+                            <option value="PERFUMERIA">PERFUMERIA</option>
+                            <option value="TECNOLOGIA">TECNOLOGIA</option>
+                            <option value="IMPRESIONES-MAQUINAS">IMPRESIONES-MAQUINAS</option>
+                            <option value="Otra">➕ Crear nueva...</option>
+                        </select>
+                        {formData.categoria === "Otra" && (
+                        <input type="text" name="nuevaCategoria" value={formData.nuevaCategoria} onChange={handleChange} placeholder="Nombre categoría" className="w-full px-5 py-3 mt-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none" required />
+                        )}
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Cantidad (Unds)</label>
+                        <input type="number" name="cantidad" value={formData.cantidad} onChange={handleChange} min="1" required className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-black text-slate-900 text-center" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Costo Unitario ($)</label>
+                        <input type="number" step="0.01" name="precio_compra" value={formData.precio_compra} onChange={handleChange} required className="w-full px-5 py-4 bg-slate-900 border border-slate-800 rounded-2xl font-black text-white text-center" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-slate-200/50">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest ml-1 uppercase">Margen de Ganancia (%)</label>
+                        <input type="number" step="0.1" name="porcentaje_ganancia" value={formData.porcentaje_ganancia} onChange={handleChange} className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl font-black text-emerald-600 text-center" />
+                    </div>
+
+                    <div className="space-y-1 p-4 bg-emerald-50 rounded-3xl border border-emerald-100 flex flex-col justify-center">
+                        <label className="text-[10px] font-black text-emerald-600 tracking-widest ml-1 uppercase mb-2">Precio de Venta Sugerido</label>
+                        <input 
+                            type="number" 
+                            name="precio_venta" 
+                            value={formData.precio_venta} 
+                            onChange={handleChange} 
+                            className="w-full bg-transparent text-2xl font-black text-emerald-700 outline-none placeholder:text-emerald-200"
+                            required 
+                        />
+                    </div>
+                </div>
+
+                <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black shadow-2xl shadow-indigo-100 hover:bg-slate-800 hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-widest">
+                    ⬇ Cargar al Lote Temporal
+                </button>
+            </form>
+        </div>
+      </div>
+
+      {/* RIGHT: Fixed Batch View */}
+      <div className="w-full lg:w-[480px] bg-slate-900 rounded-[48px] border border-slate-800 shadow-2xl flex flex-col overflow-hidden text-white group">
+        <div className="p-10 border-b border-slate-800">
+            <h3 className="text-xl font-black tracking-tight flex items-center justify-between">
+                <span>📦 Lote en Preparación</span>
+                <span className="bg-sky-500/10 text-sky-400 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-sky-500/20">{productosIngresados.length} Items</span>
+            </h3>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 space-y-4 scrollbar-none">
+            {productosIngresados.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full opacity-20 py-20 text-center">
+                  <div className="text-6xl mb-6">📥</div>
+                  <p className="font-black uppercase tracking-widest text-[10px]">Esperando ingreso de mercancía</p>
+                </div>
+            ) : (
+                productosIngresados.map((p, index) => (
+                    <div key={index} className="bg-slate-800/40 p-5 rounded-3xl border border-slate-700/50 hover:border-slate-600 transition-all relative group/item">
+                        <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-black text-slate-100 truncate uppercase tracking-tight leading-tight">{p.nombre}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] font-black text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded uppercase tracking-tighter">{p.categoria}</span>
+                                    {p.referencia && <span className="text-[9px] font-bold text-slate-500">REF: {p.referencia}</span>}
+                                </div>
+                            </div>
+                            <button onClick={() => removeItem(index)} className="text-slate-600 hover:text-red-500 transition-colors font-black text-xl">&times;</button>
+                        </div>
+                        <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-700/30">
+                            <div>
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Volúmen</span>
+                                <span className="text-sm font-black text-slate-100">{p.cantidad} <span className="text-[9px] opacity-40 font-bold uppercase">UND</span></span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Venta</span>
+                                <span className="text-sm font-black text-emerald-400">{formatCOP(p.precio_venta)}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+
+        <div className="p-10 bg-slate-950/50 backdrop-blur-xl border-t border-slate-800 space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Inversión Costo</span>
+                    <h3 className="text-xl font-black text-slate-100">{formatCOP(valorTotalIngresados)}</h3>
+                </div>
+                <div className="space-y-1 text-right">
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">Venta Estimada</span>
+                    <h3 className="text-xl font-black text-emerald-400">{formatCOP(valorVentaTotal)}</h3>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <button onClick={handleSaveDraft} disabled={isSavingDraft} className="py-5 bg-slate-800 text-slate-400 font-black rounded-[28px] hover:text-white transition-all border border-slate-700 uppercase tracking-widest text-[10px]">
+                    {isSavingDraft ? "Guardando..." : "📄 Borrador"}
+                </button>
+                <button onClick={handleSaveBatch} disabled={isSavingBatch || productosIngresados.length === 0} className="py-5 bg-emerald-600 text-white font-black rounded-[28px] shadow-2xl shadow-emerald-500/10 hover:bg-emerald-500 hover:-translate-y-1 transition-all disabled:opacity-20 disabled:grayscale uppercase tracking-widest text-[10px]">
+                    {isSavingBatch ? "Procesando..." : `✅ Finalizar Ingreso`}
+                </button>
+            </div>
+            
+            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -z-10 group-hover:bg-indigo-500/20 transition-all duration-1000"></div>
         </div>
       </div>
     </div>

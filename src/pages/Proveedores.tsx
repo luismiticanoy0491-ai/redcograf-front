@@ -1,9 +1,8 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../api/api";
-import "./Proveedores.css";
 
 function Proveedores() {
-  const [proveedores, setProveedores] = useState([]);
+  const [proveedores, setProveedores] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     nombre_comercial: "",
     nit: "",
@@ -23,21 +22,19 @@ function Proveedores() {
       .catch(console.error);
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     API.post("/proveedores", formData)
-      .then(res => {
-        alert("¡Proveedor integrado a la cadena de suministro!");
+      .then(() => {
         setFormData({ nombre_comercial: "", nit: "", direccion: "", telefono: "", correo: "" });
         fetchProveedores();
       })
       .catch(err => {
-        alert("Error creando proveedor.");
         console.error(err);
       })
       .finally(() => setIsLoading(false));
@@ -48,126 +45,99 @@ function Proveedores() {
   };
 
   return (
-    <div className="proveedores-layout fade-in">
-      {/* Top Header */}
-      <div className="top-nav-header">
-        <button className="back-button" onClick={() => window.history.back()}>
-          &#8592; <span>Agregar Proveedor</span>
-        </button>
+    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700 pb-20">
+      
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 pb-8 border-b border-slate-200">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+            Cadena de Suministro
+          </h1>
+          <p className="text-slate-500 font-medium text-lg italic">Gestión de alianzas comerciales y proveedores logísticos.</p>
+        </div>
       </div>
 
-      <div className="content-wrapper">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
         
-        {/* Lado izquierdo: Formulario de Diseño Específico */}
-        <div className="form-container-side">
-          <div className="form-titles">
-            <span className="subtitle">DIRECTORIO LOGÍSTICO</span>
-            <h1 className="main-title">Nuevo Proveedor</h1>
-            <p className="description">
-              Complete la información detallada para integrar un nuevo aliado comercial a su cadena de suministro.
-            </p>
-          </div>
-
-          <div className="card form-box">
-            <form onSubmit={handleSubmit}>
-              
-              <div className="input-block">
-                <label>NOMBRE COMERCIAL</label>
-                <input 
-                  type="text" 
-                  name="nombre_comercial"
-                  value={formData.nombre_comercial}
-                  onChange={handleChange}
-                  placeholder="Ej. Corporación Logística Global" 
-                  required
-                />
-              </div>
-
-              <div className="input-block">
-                <label>NIT / ID FISCAL</label>
-                <input 
-                  type="text" 
-                  name="nit"
-                  value={formData.nit}
-                  onChange={handleChange}
-                  placeholder="900.123.456-7" 
-                />
-              </div>
-
-              <div className="input-block">
-                <label>DIRECCIÓN DE OPERACIONES</label>
-                <textarea 
-                  name="direccion"
-                  value={formData.direccion}
-                  onChange={handleChange}
-                  rows={2}
-                  placeholder="Calle Principal #45-12, Zona Industrial Sur" 
-                />
-              </div>
-
-              <div className="input-block has-icon">
-                <label>TELÉFONO DE CONTACTO</label>
-                <div className="input-icon-wrapper">
-                  <span className="icon">📞</span>
-                  <input 
-                    type="text" 
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handleChange}
-                    placeholder="+57 300 000 0000" 
-                  />
+        {/* Form Column */}
+        <div className="xl:col-span-4">
+            <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm sticky top-8 space-y-8">
+                <div className="space-y-2">
+                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">Directorio Logístico</span>
+                    <h3 className="text-2xl font-black text-slate-900 leading-none">Vinculación de Aliado</h3>
                 </div>
-              </div>
 
-              <div className="input-block has-icon">
-                <label>CORREO ELECTRÓNICO</label>
-                <div className="input-icon-wrapper">
-                  <span className="icon">✉️</span>
-                  <input 
-                    type="email" 
-                    name="correo"
-                    value={formData.correo}
-                    onChange={handleChange}
-                    placeholder="contacto@proveedor.com" 
-                  />
-                </div>
-              </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Razón Social <span className="text-rose-500">*</span></label>
+                        <input type="text" name="nombre_comercial" value={formData.nombre_comercial} onChange={handleChange} required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-slate-50 transition-all uppercase" placeholder="Ej: Distribuidora Global S.A" />
+                    </div>
 
-              {/* ACTION BUTTONS */}
-              <div className="action-buttons-container">
-                <button type="button" className="action-btn cancel-btn" onClick={handleCancel}>
-                  Cancelar
-                </button>
-                <button type="submit" className="action-btn save-btn" disabled={isLoading}>
-                  <span>💾</span> Guardar Proveedor
-                </button>
-              </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">NIT / Tax ID</label>
+                        <input type="text" name="nit" value={formData.nit} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-slate-50 transition-all uppercase" placeholder="900.000.000-0" />
+                    </div>
 
-            </form>
-          </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sede Operativa</label>
+                        <textarea name="direccion" value={formData.direccion} onChange={handleChange} rows={2} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-slate-50 transition-all" placeholder="Carrera 45 # 12-34..." />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</label>
+                            <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-slate-50 transition-all" placeholder="300 000 0000" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                            <input type="email" name="correo" value={formData.correo} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:ring-4 focus:ring-slate-50 transition-all lowercase" placeholder="proveedor@email.com" />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={handleCancel} className="flex-1 py-4 bg-slate-100 text-slate-400 font-black rounded-3xl uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all text-center">Cancelar</button>
+                        <button type="submit" disabled={isLoading} className="flex-[2] py-4 bg-slate-900 text-white font-black rounded-3xl shadow-xl shadow-slate-100 hover:bg-slate-800 hover:-translate-y-1 transition-all uppercase tracking-widest text-[10px]">
+                            {isLoading ? "⏳..." : "💾 Guardar Aliado"}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        {/* Lado derecho: Lista de Proveedores Registrados */}
-        <div className="list-container-side">
-          <div className="list-header">
-            <h3>Aliados Comerciales ({proveedores.length})</h3>
-          </div>
-          <div className="proveedores-grid">
-            {proveedores.length === 0 ? (
-              <p style={{color: '#64748b'}}>No hay proveedores registrados aún.</p>
-            ) : (
-              proveedores.map(prov => (
-                <div key={prov.id} className="prov-card">
-                  <h4>{prov.nombre_comercial}</h4>
-                  <div className="prov-details">
-                    <p><strong>NIT:</strong> {prov.nit || "N/A"}</p>
-                    <p><strong>📌</strong> {prov.direccion || "Sin dirección"}</p>
-                    <p><strong>📞</strong> {prov.telefono || "Sin teléfono"}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+        {/* List Column */}
+        <div className="xl:col-span-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {proveedores.length === 0 ? (
+                    <div className="md:col-span-2 py-20 text-center bg-white rounded-[40px] border-2 border-dashed border-slate-100">
+                        <p className="text-slate-300 font-black uppercase tracking-widest text-xs italic">Cero proveedores en el radar.</p>
+                    </div>
+                ) : (
+                    proveedores.map(p => (
+                        <div key={p.id} className="group bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-100/50 hover:border-indigo-100 transition-all duration-500 flex flex-col justify-between overflow-hidden relative active:scale-95">
+                            <div className="relative z-10 space-y-4">
+                                <div className="space-y-1">
+                                    <h4 className="text-lg font-black text-slate-900 uppercase leading-none truncate group-hover:text-indigo-600 transition-colors">{p.nombre_comercial}</h4>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.nit || "SIN-NIT"}</div>
+                                </div>
+                                <div className="space-y-2 border-t border-slate-50 pt-4">
+                                    <div className="flex items-start gap-2 text-xs font-bold text-slate-600">
+                                        <span className="opacity-40">📌</span> <span className="uppercase">{p.direccion || "Domicilio no especificado"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                                        <span className="opacity-40">📞</span> <span>{p.telefono || "Contacto no registrado"}</span>
+                                    </div>
+                                    {p.correo && (
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 lowercase italic">
+                                            <span className="opacity-40">✉️</span> <span>{p.correo}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="absolute top-0 right-0 p-8 text-4xl opacity-0 group-hover:opacity-10 transition-opacity translate-x-4 group-hover:translate-x-0 group-hover:scale-150 duration-700 pointer-events-none">📦</div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
 
       </div>

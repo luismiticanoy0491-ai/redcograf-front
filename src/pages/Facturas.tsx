@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
-import "./Facturas.css"; // We will add a bit of CSS to match the mobile-friendly card style
 import { FacturaVenta } from "../types";
 
 function Facturas() {
@@ -23,7 +22,6 @@ function Facturas() {
 
   useEffect(() => {
     if (facturaPrintData) {
-      // Trigger print after DOM has updated to show the hidden receipt
       setTimeout(() => {
         window.print();
         setFacturaPrintData(null);
@@ -59,18 +57,16 @@ function Facturas() {
   };
 
   const procesarBorrado = (id: number) => {
-    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que deseas ANULAR la factura #${id}? Esta acción devolverá los productos al inventario y eliminará el registro monetario irreversiblemente.`)) return;
-
+    if (!window.confirm(`⚠️ ¿Anular factura #${id}? Se devolverá el stock.`)) return;
     API.delete(`/ventas/${id}`)
       .then(res => {
         if (res.data.success) {
-          alert("✅ " + res.data.message);
-          fetchFacturas(); // Recargar
+          fetchFacturas();
         }
       })
       .catch(err => {
-        console.error(err);
-        alert("❌ Hubo un error al intentar anular la factura.");
+          console.error(err);
+          alert("Error al anular.");
       });
   };
 
@@ -84,17 +80,6 @@ function Facturas() {
       .catch(console.error);
   };
 
-  const toggleMenu = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    if (menuOpenId === id) setMenuOpenId(null);
-    else setMenuOpenId(id);
-  };
-
-  const closeMenu = () => {
-    if (menuOpenId) setMenuOpenId(null);
-  };
-
-  // Filtrado
   const facturasFiltradas = facturas.filter((f: FacturaVenta) => {
     const termLower = searchTerm.toLowerCase();
     const matchSearch = 
@@ -109,218 +94,223 @@ function Facturas() {
   });
 
   return (
-    <div className="facturas-container fade-in" onClick={closeMenu}>
-      <div className="no-print">
-        <div className="facturas-header-section">        
-        {/* BUSCADOR */}
-        <div className="search-bar-wrapper">
-          <span className="search-icon">🔍</span>
-          <input 
-            type="text" 
-            placeholder="Buscar por cliente o factura..." 
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        {/* FILTROS RÁPIDOS */}
-        <div className="fast-filters">
-          <button 
-            className={`filter-pill ${filtroRapido === "Todas" ? "active" : ""}`} 
-            onClick={() => setFiltroRapido("Todas")}
-          >
-            Todas
-          </button>
-          <button 
-            className={`filter-pill ${filtroRapido === "Efectivo" ? "active" : ""}`} 
-            onClick={() => setFiltroRapido("Efectivo")}
-          >
-            Pagadas
-          </button>
-          <button 
-            className={`filter-pill ${filtroRapido === "Transferencia" ? "active" : ""}`} 
-            onClick={() => setFiltroRapido("Transferencia")}
-          >
-            Pendientes
-          </button>
-        </div>
-
-        <div className="results-count">
-          <span className="results-title">Facturas Recientes</span>
-          <span className="results-number">{facturasFiltradas.length} resultados</span>
-        </div>
-      </div>
-
-      <div className="facturas-list">
-        {loading ? (
-          <p style={{textAlign: 'center', padding: '2rem'}}>Cargando historial...</p>
-        ) : facturasFiltradas.length === 0 ? (
-          <p style={{textAlign: 'center', padding: '2rem', color: '#64748b'}}>No se encontraron facturas con esos criterios.</p>
-        ) : (
-          facturasFiltradas.map((f: FacturaVenta) => {
-            const dateObj = new Date(f.fecha);
-            const dateStr = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-            
-            return (
-              <div key={f.id} className="factura-card">
-                
-                <div className="factura-card-header">
-                  <div>
-                    <h3 className="card-client-name">{f.cliente || "Cliente Casual"}</h3>
-                    <span className="card-invoice-id">INV-{dateObj.getFullYear()}-{(f.id).toString().padStart(4, '0')}</span>
-                  </div>
-                  <div className="menu-container">
-                    <button className="menu-dot-btn" onClick={(e) => toggleMenu(e, f.id)}>
-                      <span className="dots">⋮</span>
-                    </button>
-                    {menuOpenId === f.id && (
-                      <div className="menu-dropdown fade-in">
-                        <button className="menu-item" onClick={() => verDetalles(f.id)}>
-                          <span>✏️</span> Ver/Editar Detalles
-                        </button>
-                        <button className="menu-item" onClick={() => handleImprimirVenta(f)}>
-                          <span>📤</span> Compartir (Imprimir)
-                        </button>
-                        <button className="menu-item danger" onClick={() => procesarBorrado(f.id)}>
-                          <span>🗑️</span> Eliminar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="factura-card-body">
-                  <div className="left-data">
-                    <span className="data-label">FECHA DE EMISIÓN</span>
-                    <span className="data-value">{dateStr}</span>
-                  </div>
-                  <div className="right-data">
-                    <span className="invoice-total">{formatCOP(f.total)}</span>
-                    <span className="status-badge" style={f.metodo_pago === 'Efectivo' ? {backgroundColor: '#e0f2fe', color: '#0369a1'} : {backgroundColor: '#cffafe', color: '#0891b2'}}>
-                      {f.metodo_pago === 'Efectivo' ? 'PAGADA' : 'PENDIENTE'}
-                    </span>
-                  </div>
-                </div>
-
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {modalDetalle && (
-        <div className="modal-overlay">
-          <div className="modal-content fade-in" style={{maxWidth: '500px'}}>
-            <h2>Detalles de la Factura #{modalDetalle}</h2>
-            <div style={{marginTop: '1.5rem', marginBottom: '1.5rem'}}>
-              <table className="modern-table">
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th>Cant</th>
-                    <th>Precio Uni.</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detallesFactura.map((d, i) => (
-                    <tr key={i}>
-                      <td>
-                        <strong>{d.nombre}</strong>
-                        {d.referencia && <div style={{fontSize: '0.8rem', color: '#666'}}>{d.referencia}</div>}
-                      </td>
-                      <td>{d.cantidad}</td>
-                      <td>{formatCOP(d.precio_unitario)}</td>
-                      <td style={{fontWeight: 'bold', color: 'var(--primary)'}}>{formatCOP(d.cantidad * d.precio_unitario)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+    <div className="max-w-[1200px] mx-auto animate-in fade-in duration-700 pb-20" onClick={() => setMenuOpenId(null)}>
+      
+      <div className="no-print space-y-10">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200">
+            <div className="space-y-1">
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+                    Historial de Ventas
+                </h1>
+                <p className="text-slate-500 font-medium text-lg italic">Control total de comprobantes y auditoría de transacciones.</p>
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className="btn-primary" 
-                style={{ flex: 1, backgroundColor: '#0f172a', fontWeight: 'bold' }} 
-                onClick={() => {
-                  const f = facturas.find(fac => fac.id === modalDetalle);
-                  if (f) {
-                    setFacturaPrintData({ cabecera: f, detalles: detallesFactura });
-                  }
-                }}
-              >
-                🖨️ Imprimir Recibo
-              </button>
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setModalDetalle(null)}>Cerrar Detalles</button>
+            <div className="w-full md:w-auto relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">🔍</span>
+                <input 
+                    type="text" 
+                    placeholder="Buscar por ID o cliente..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full md:w-80 pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400 transition-all font-bold text-slate-700"
+                />
+            </div>
+        </div>
+
+        {/* Filters & Stats */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                {["Todas", "Efectivo", "Transferencia"].map(f => (
+                    <button 
+                        key={f}
+                        onClick={() => setFiltroRapido(f)}
+                        className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            filtroRapido === f ? 'bg-white text-indigo-600 shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        {f === "Todas" ? "Todas" : f === "Efectivo" ? "Efectivo" : "Banco"}
+                    </button>
+                ))}
+            </div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 bg-white border border-slate-200 px-4 py-2 rounded-full">
+                {facturasFiltradas.length} Facturas Registradas
+            </div>
+        </div>
+
+        {/* Invoice Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {loading ? (
+                <div className="col-span-full py-20 text-center space-y-4">
+                    <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Sincronizando base de datos...</p>
+                </div>
+            ) : facturasFiltradas.length === 0 ? (
+                <div className="col-span-full py-24 text-center bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
+                    <div className="text-6xl mb-4">📂</div>
+                    <p className="text-slate-400 font-bold italic">No se encontraron comprobantes para esta búsqueda.</p>
+                </div>
+            ) : (
+                facturasFiltradas.map((f: FacturaVenta) => {
+                    const dateObj = new Date(f.fecha);
+                    const dateStr = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+                    
+                    return (
+                        <div key={f.id} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative">
+                            
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase group-hover:text-indigo-600 transition-colors">{f.cliente || "Consumidor Final"}</h3>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fca #{(f.id).toString().padStart(6, '0')}</span>
+                                </div>
+                                <div className="relative">
+                                    <button 
+                                        className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-100 text-slate-400 transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === f.id ? null : f.id); }}
+                                    >
+                                        <span className="text-xl font-bold leading-none">⋮</span>
+                                    </button>
+                                    {menuOpenId === f.id && (
+                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 p-2 z-20 animate-in zoom-in duration-200">
+                                            <button onClick={() => verDetalles(f.id)} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-slate-50 text-xs font-black text-slate-700 flex items-center gap-3">
+                                                <span>🔍</span> Ver Auditoría
+                                            </button>
+                                            <button onClick={() => handleImprimirVenta(f)} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-slate-50 text-xs font-black text-indigo-600 flex items-center gap-3">
+                                                <span>🖨️</span> Re-imprimir Ticket
+                                            </button>
+                                            <div className="h-px bg-slate-100 my-1"></div>
+                                            <button onClick={() => procesarBorrado(f.id)} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-red-50 text-xs font-black text-red-500 flex items-center gap-3">
+                                                <span>🗑️</span> Anular Venta
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center pb-4 border-b border-slate-50">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha de Emisión</span>
+                                    <span className="text-xs font-bold text-slate-600">{dateStr}</span>
+                                </div>
+                                <div className="flex justify-between items-end">
+                                    <div className="space-y-1">
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                                            f.metodo_pago === 'Efectivo' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'
+                                        }`}>
+                                            {f.metodo_pago}
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Monto Total</span>
+                                        <span className="text-2xl font-black text-slate-900 tracking-tighter">{formatCOP(f.total)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="absolute inset-x-8 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
+                        </div>
+                    );
+                })
+            )}
+        </div>
+
+        {/* Floating Button */}
+        <button 
+            onClick={() => window.location.href="/"}
+            className="fixed bottom-10 right-10 w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center text-3xl font-black shadow-2xl hover:scale-110 active:scale-95 transition-all z-30"
+        >+</button>
+      </div>
+
+      {/* MODAL: Detalles */}
+      {modalDetalle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setModalDetalle(null)}></div>
+          <div className="relative w-full max-w-xl bg-white rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in duration-400">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center">
+                <h2 className="text-2xl font-black tracking-tight text-slate-900">Auditoría Factura #{modalDetalle}</h2>
+                <button onClick={() => setModalDetalle(null)} className="text-3xl text-slate-400 hover:text-slate-600">&times;</button>
+            </div>
+            
+            <div className="p-10">
+                <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
+                    {detallesFactura.map((d, i) => (
+                        <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div className="min-w-0">
+                                <h4 className="text-sm font-black text-slate-800 truncate uppercase">{d.nombre}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 mt-1">{d.cantidad} Unds x {formatCOP(d.precio_unitario)}</p>
+                            </div>
+                            <div className="text-right ml-4 shrink-0">
+                                <span className="text-sm font-black text-indigo-600">{formatCOP(d.cantidad * d.precio_unitario)}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-10 flex gap-4">
+                    <button 
+                        className="flex-[2] py-5 bg-slate-900 text-white font-black rounded-3xl shadow-xl hover:-translate-y-1 transition-all uppercase tracking-widest text-[10px]"
+                        onClick={() => {
+                        const f = facturas.find(fac => fac.id === modalDetalle);
+                        if (f) setFacturaPrintData({ cabecera: f, detalles: detallesFactura });
+                        }}
+                    >
+                        🖨️ Re-Imprimir Comprobante
+                    </button>
+                    <button onClick={() => setModalDetalle(null)} className="flex-1 py-5 bg-slate-100 text-slate-500 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px]">Cerrar</button>
+                </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Botón Flotante */}
-      <button className="floating-add-btn" onClick={() => window.location.href="/"}>+</button>
-      </div>
-
+      {/* PRINT TICKET (Hidden/Print only) */}
       {facturaPrintData && (
-        <div className="printable-receipt print-only fade-in" style={{fontFamily: 'monospace', color: 'black'}}>
-          <div className="receipt-header print-only" style={{ marginBottom: '1rem', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '0.2rem', fontWeight: 'bold' }}>{empresa.nombre_empresa || "MI EMPRESA"}</h2>
-            <h4 style={{ margin: '0.2rem 0', fontWeight: 'bold' }}>RECIBO DE CAJA VOLANTE</h4>
-            {empresa.nit && <p style={{ fontSize: '0.9rem', margin: '0' }}>NIT: {empresa.nit}</p>}
-            <p style={{ fontSize: '0.9rem', margin: '0', fontWeight: 'bold' }}>No responsable de IVA</p>
-            {empresa.direccion && <p style={{ fontSize: '0.85rem', margin: '0' }}>Dir: {empresa.direccion}</p>}
-            <p style={{ fontSize: '0.85rem', margin: '0' }}>
-               {empresa.telefono && <span>Cel: {empresa.telefono}</span>}
-               {empresa.telefono && empresa.correo && <span> | </span>}
-               {empresa.correo && <span>Correo: {empresa.correo}</span>}
-            </p>
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-            <p style={{ fontSize: '0.9rem', margin: '0' }}>Ticket No. {facturaPrintData.cabecera.id}</p>
-            <p style={{ margin: '0.5rem 0' }}>------------------------------------</p>
-          </div>
-          
-          <table style={{ width: '100%', fontSize: '12px', marginBottom: '1rem', borderCollapse: 'collapse' }}>
-            <thead style={{ borderBottom: '1px dashed black', borderTop: '1px dashed black' }}>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Cant</th>
-                <th style={{ textAlign: 'left', padding: '4px 0' }}>Itm</th>
-                <th style={{ textAlign: 'right', padding: '4px 0' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {facturaPrintData.detalles.map((d, i) => (
-                <tr key={i}>
-                  <td style={{ padding: '4px 0', verticalAlign: 'top' }}>{d.cantidad}</td>
-                  <td style={{ padding: '4px 0' }}>
-                     <div>{d.nombre}</div>
-                     {d.referencia && <div style={{fontSize: '10px'}}>{d.referencia}</div>}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '4px 0', verticalAlign: 'top' }}>{formatCOP(d.cantidad * d.precio_unitario)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="print-only">------------------------------------</p>
-
-          <div style={{ paddingTop: '5px', marginTop: '5px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>
-              <span>TOTAL:</span>
-              <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
+        <div className="print-only p-8 text-black font-mono leading-tight space-y-4">
+            <div className="text-center space-y-1">
+                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
+                <p className="text-sm">NIT: {empresa.nit || "—"}</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest mt-4">Comprobante de Ingreso</p>
+                <div className="py-2 border-y border-dashed border-black my-4 text-sm font-bold uppercase">Ticket No. {facturaPrintData.cabecera.id}</div>
             </div>
             
-            <div className="print-only" style={{ marginTop: '1.5rem', fontSize: '12px', textAlign: 'left' }}>
-              <p style={{ margin: '4px 0' }}><strong>Fecha Original:</strong> {new Date(facturaPrintData.cabecera.fecha).toLocaleString()}</p>
-              <p style={{ margin: '4px 0' }}><strong>Forma de pago:</strong> {facturaPrintData.cabecera.metodo_pago}</p>
-              <p style={{ margin: '4px 0' }}><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente || "Casual"}</p>
-              <p style={{ margin: '4px 0' }}><strong>Cajero Vendedor:</strong> {facturaPrintData.cabecera.cajero || "Principal"}</p>
-              
-              <div style={{ margin: '15px 0 5px 0', borderTop: '1px dashed #ccc', paddingTop: '10px', whiteSpace: 'pre-wrap', textAlign: 'center', fontSize: '11px' }}>
-                {empresa.resolucion || "Resolución DIAN Autorizada"}
-              </div>
-              <p style={{ textAlign: 'center', marginTop: '10px' }}>¡Gracias por su compra!</p>
+            <table className="w-full text-xs">
+                <thead>
+                    <tr className="border-b border-dashed border-black">
+                        <th className="text-left py-1">Und</th>
+                        <th className="text-left py-1">Ítem</th>
+                        <th className="text-right py-1">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {facturaPrintData.detalles.map((d, i) => (
+                        <tr key={i}>
+                            <td className="py-1 align-top">{d.cantidad}</td>
+                            <td className="py-1">
+                                <div className="uppercase font-bold">{d.nombre}</div>
+                                {d.referencia && <div className="text-[9px]">REF: {d.referencia}</div>}
+                            </td>
+                            <td className="text-right py-1 align-top font-bold">{formatCOP(d.cantidad * d.precio_unitario)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            <div className="pt-4 border-t border-dashed border-black space-y-2">
+                <div className="flex justify-between font-bold text-lg">
+                    <span>TOTAL:</span>
+                    <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
+                </div>
+                <div className="text-[10px] space-y-1 mt-6">
+                    <p><strong>Fecha:</strong> {new Date(facturaPrintData.cabecera.fecha).toLocaleString()}</p>
+                    <p><strong>Pago:</strong> {facturaPrintData.cabecera.metodo_pago}</p>
+                    <p><strong>Cajero:</strong> {facturaPrintData.cabecera.cajero || "Principal"}</p>
+                    <p><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente || "Consumidor Final"}</p>
+                </div>
+                <div className="text-center text-[10px] pt-8 opacity-50 italic">
+                    {empresa.resolucion || "Exento de facturación según resolución DIAN."}
+                    <p className="mt-4 font-bold not-italic">¡GRACIAS POR SU PREFERENCIA!</p>
+                </div>
             </div>
-          </div>
         </div>
       )}
 
