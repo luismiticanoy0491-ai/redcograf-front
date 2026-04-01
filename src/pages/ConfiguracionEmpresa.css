@@ -1,0 +1,217 @@
+.empresa-layout {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 1.5rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background-color: #f8fafc;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
+}
+
+@media (min-width: 900px) {
+  .empresa-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 3rem;
+  }
+  .empresa-form-card {
+    flex: 1.8;
+    background: #ffffff;
+    padding: 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    border: 1px solid #f1f5f9;
+  }
+  .preview-zone {
+    flex: 1.2;
+    position: sticky;
+    top: 1.5rem;
+    background: #ffffff;
+    padding: 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    border: 1px solid #f1f5f9;
+  }
+}
+
+.empresa-header {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.empresa-header h2 {
+  color: #0f172a;
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.empresa-header p {
+  color: #64748b;
+  margin: 0;
+}
+
+.req {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.modern-form .form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modern-form .half {
+  flex: 1;
+}
+
+.modern-form label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #475569;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.modern-form input,
+.modern-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  font-size: 0.95rem;
+  color: #1e293b;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.modern-form input:focus,
+.modern-form textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
+}
+
+.modern-form .helper-text {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.resolucion-container {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(145deg, #f8fafc, #f1f5f9);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid #3b82f6;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+}
+
+.empresa-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.btn-guardar-empresa {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25), 0 4px 6px -2px rgba(37, 99, 235, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.5px;
+}
+
+.btn-guardar-empresa:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 20px -3px rgba(37, 99, 235, 0.35), 0 4px 6px -2px rgba(37, 99, 235, 0.1);
+}
+
+.btn-guardar-empresa:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 5px 10px -3px rgba(37, 99, 235, 0.2);
+}
+
+.btn-guardar-empresa.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.25), 0 4px 6px -2px rgba(16, 185, 129, 0.1);
+}
+
+/* TICKET PREVIEW */
+.preview-zone h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #334155;
+}
+
+.ticket-sketch {
+  background-color: #fffbeb; /* slightly lighter warm */
+  padding: 1.5rem 1.25rem;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0 0 8px 8px;
+  font-family: 'Courier New', Courier, monospace;
+  color: #1e293b;
+  box-shadow: 4px 8px 15px rgba(0,0,0,0.05);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  position: relative;
+  margin-top: 1rem;
+}
+
+.ticket-sketch::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  /* Diente de sierra / zig-zag effect */
+  background: radial-gradient(circle, transparent, transparent 4px, #fffbeb 4px, #fffbeb);
+  background-size: 20px 20px;
+  background-position: -10px -10px;
+}
+
+.ts-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.ts-header strong {
+  font-size: 1.25rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.ts-header p {
+  margin: 0 0 0.25rem 0;
+  color: #475569;
+}
+
+.ts-body {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #94a3b8;
+}
+
+.ts-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #475569;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 1rem;
+}

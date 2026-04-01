@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.proveedores-layout {
+  min-height: 100vh;
+  background-color: #f7f9fc; /* Fondo tenue violeta/azul claro */
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+}
+
+/* TOP HEADER */
+.top-nav-header {
+  padding: 1rem 1.5rem;
+  background-color: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .content-wrapper {
+    flex-direction: row;
+    width: 100%;
+    max-width: 1800px; /* Expansión casi total */
+    align-items: flex-start;
+  }
+  .form-container-side {
+    flex: 0 0 450px; /* Formulario un poco más robusto */
+  }
+  .list-container-side {
+    flex: 1;
+  }
+}
+
+/* Títulos y Header de Formulario */
+.form-titles {
+  margin-bottom: 2rem;
+}
+
+.subtitle {
+  color: #3b82f6;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.main-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.5px;
+}
+
+.description {
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Tarjeta Formulario Blanca */
+.form-box {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.5); /* Soft border for glass feel */
+}
+
+/* Campos de Input */
+.input-block {
+  margin-bottom: 1.5rem;
+}
+
+.input-block label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.8px;
+}
+
+.input-block input,
+.input-block textarea {
+  width: 100%;
+  background-color: #e6eaf3; /* Light gray-blue based on mockup */
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
+  color: #334155;
+  font-family: inherit;
+  transition: box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.input-block input::placeholder,
+.input-block textarea::placeholder {
+  color: #94a3b8;
+}
+
+.input-block input:focus,
+.input-block textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  background-color: #fff;
+}
+
+.input-block textarea {
+  resize: vertical;
+}
+
+/* Iconos integrados en el input */
+.input-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon-wrapper .icon {
+  position: absolute;
+  left: 1rem;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  pointer-events: none;
+  filter: grayscale(100%) opacity(0.6);
+}
+
+.input-icon-wrapper input {
+  padding-left: 2.8rem;
+}
+
+/* Botones de acción */
+.action-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 2.5rem;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 30px; /* Fully rounded capsule */
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.cancel-btn {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.cancel-btn:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.save-btn {
+  background-color: #1d4ed8; /* Strong primary blue */
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(29, 78, 216, 0.3);
+}
+
+.save-btn:hover {
+  background-color: #1e40af;
+  transform: translateY(-1px);
+}
+
+.save-btn:active {
+  transform: translateY(0);
+}
+
+/* Lado Derecho - Grilla */
+.list-header h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.proveedores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.prov-card {
+  background-color: #ffffff;
+  border-radius: 12px; /* Más redondo y moderno */
+  padding: 1.25rem; /* Más espacio interno */
+  box-shadow: 0 10px 30px -5px rgba(0,0,0,0.06);
+  border-left: 5px solid #3b82f6; /* Borde más notorio */
+}
+
+.prov-card h4 {
+  margin: 0 0 1rem 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.prov-details p {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
