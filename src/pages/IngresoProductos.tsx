@@ -256,7 +256,7 @@ function IngresoProductos() {
   const valorVentaTotal = productosIngresados.reduce((total, p) => total + (parseFloat(p.precio_venta.toString()) * parseFloat(p.cantidad.toString())), 0);
 
   const handleDownloadBackup = () => {
-    const baseURL = API.defaults.baseURL || "http://localhost:4000";
+    const baseURL = API.defaults.baseURL || "https://redcograf-back.onrender.com";
     window.location.href = `${baseURL}/backup/download`;
   };
 
