@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
+import PrintReceipt from "../components/PrintReceipt";
 
 function Productos() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -16,7 +18,9 @@ function Productos() {
     const savedActiveTab = localStorage.getItem("posGeneralActiveTab");
     return savedActiveTab ? JSON.parse(savedActiveTab) : 1;
   });
-  const activeTab = tabs.find((t: any) => t.id === activeTabId) || tabs[0];
+  const fallbackTab = { id: 1, carrito: [], clienteId: "1", clienteSearch: "" };
+  const getSafeTabs = () => Array.isArray(tabs) && tabs.length > 0 ? tabs : [fallbackTab];
+  const activeTab = getSafeTabs().find((t: any) => t.id === activeTabId) || getSafeTabs()[0];
 
   useEffect(() => {
     localStorage.setItem("posGeneralTabs", JSON.stringify(tabs));
@@ -41,6 +45,8 @@ function Productos() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [metodoPago, setMetodoPago] = useState("Efectivo");
   const [pagoCliente, setPagoCliente] = useState("");
+  const [pagoEfectivoMixto, setPagoEfectivoMixto] = useState("");
+  const [pagoTransferenciaMixto, setPagoTransferenciaMixto] = useState("");
   
   // ERP States
   const [cajeros, setCajeros] = useState<any[]>([]);
@@ -96,9 +102,9 @@ function Productos() {
       });
   };
 
-  const filteredProducts = productos.filter(p => 
-    p.nombre.toLowerCase().includes(search.toLowerCase()) || 
-    (p.referencia && p.referencia.toLowerCase().includes(search.toLowerCase()))
+  const filteredProducts = (Array.isArray(productos) ? productos : []).filter(p => 
+    (p?.nombre || "").toLowerCase().includes(search.toLowerCase()) || 
+    (p?.referencia && p.referencia.toLowerCase().includes(search.toLowerCase()))
   );
 
   const agregarAlCarrito = (producto: any) => {
@@ -151,6 +157,10 @@ function Productos() {
 
   const cashPaga = parseFloat(pagoCliente) || 0;
   const vuelto = cashPaga - granTotal;
+  
+  const efMixto = parseFloat(pagoEfectivoMixto) || 0;
+  const trMixto = parseFloat(pagoTransferenciaMixto) || 0;
+  const sumMixto = efMixto + trMixto;
 
   const confirmarVenta = async () => {
     if (carrito.length === 0) return;
@@ -158,14 +168,18 @@ function Productos() {
     if (metodoPago === "Efectivo" && cashPaga < granTotal) {
       return alert("El efectivo ingresado es insuficiente para cubrir el total de la compra.");
     }
+    if (metodoPago === "Mixto" && sumMixto !== granTotal) {
+      return alert("La suma de valores en pago mixto debe ser EXACTAMENTE el total de la factura.");
+    }
 
     setIsProcessing(true);
     try {
       const response = await API.post("/ventas", {
         items: carrito,
         metodoPago,
-        efectivoEntregado: cashPaga,
-        vuelto: vuelto > 0 ? vuelto : 0,
+        efectivoEntregado: metodoPago === "Mixto" ? efMixto : cashPaga,
+        transferenciaEntregada: metodoPago === "Mixto" ? trMixto : (metodoPago === "Tarjeta" ? granTotal : 0),
+        vuelto: metodoPago === "Efectivo" && vuelto > 0 ? vuelto : 0,
         cajeroId: parseInt(cajeroId),
         clienteId: clienteId ? parseInt(clienteId) : 1,
         total: granTotal
@@ -181,8 +195,11 @@ function Productos() {
     }
   };
 
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef });
+
   const imprimirYTerminar = () => {
-    window.print();
+    reactToPrintFn();
   };
 
   const clienteSeleccionado = clientes.find(c => c.id === parseInt(clienteId)) || { nombre: "Cliente General (Mostrador)" };
@@ -263,7 +280,8 @@ function Productos() {
       <div className="w-full lg:w-[420px] bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden printable-receipt">
         
         {/* Receipt Header (Print Only) */}
-        <div className="hidden print:block text-center p-6 space-y-2">
+        {/* We moved printing logic to react-to-print so this can be removed or kept hidden, but let's hide it completely */}
+        <div className="hidden text-center p-6 space-y-2">
           <h2 className="text-xl font-black">{empresa.nombre_empresa || "MERCADO PRO"}</h2>
           {empresa.nit && <p className="text-sm font-bold">NIT: {empresa.nit}</p>}
           <p className="text-xs">No responsable de IVA</p>
@@ -388,12 +406,11 @@ function Productos() {
                 </div>
                 
                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
-                  <div className="flex items-center bg-slate-100 rounded-xl p-1 no-print">
+                  <div className="flex items-center bg-slate-100 rounded-xl p-1">
                     <button onClick={() => removerDelCarrito(item)} className="w-8 h-8 rounded-lg hover:bg-white text-slate-600 shadow-none hover:shadow-sm transition-all">-</button>
                     <span className="w-8 text-center text-xs font-black text-slate-900">{item.qty}</span>
                     <button onClick={() => agregarAlCarrito(item)} className="w-8 h-8 rounded-lg hover:bg-white text-slate-600 shadow-none hover:shadow-sm transition-all">+</button>
                   </div>
-                  <span className="hidden print:block text-xs font-bold tracking-widest text-slate-600">CANT: {item.qty}</span>
                   <div className="text-right">
                     <span className="text-xs text-slate-400 block font-bold mb-0.5">Subtotal</span>
                     <span className="text-sm font-black text-slate-900">{formatCOP(item.precio_venta * item.qty)}</span>
@@ -420,7 +437,7 @@ function Productos() {
                <div className="text-indigo-200 text-4xl">💰</div>
             </div>
             
-            <div className="hidden print:block pt-6 border-t border-dashed border-slate-300">
+            <div className="hidden pt-6 border-t border-dashed border-slate-300">
               <div className="space-y-1 text-[10px] font-medium text-slate-600">
                 <p><span className="font-bold">Fecha:</span> {new Date().toLocaleString()}</p>
                 <p><span className="font-bold">Método:</span> {metodoPago}</p>
@@ -447,6 +464,27 @@ function Productos() {
               </button>
             </div>
           </div>
+        )}
+      </div>
+
+      <div style={{ display: 'none' }}>
+        {ventaExitosa && (
+          <PrintReceipt
+            ref={contentRef}
+            empresa={empresa}
+            numero={facturaIdImpresion || ""}
+            fecha={new Date()}
+            cliente={clienteSeleccionado.nombre}
+            cajero={cajeroSeleccionado.nombre}
+            metodoPago={metodoPago}
+            items={carrito}
+            total={granTotal}
+            subtotal={subtotal}
+            efectivoRecibido={metodoPago === "Mixto" ? efMixto : cashPaga}
+            vuelto={metodoPago === "Efectivo" ? vuelto : undefined}
+            pagoEfectivoMixto={metodoPago === "Mixto" ? efMixto : undefined}
+            pagoTransferenciaMixto={metodoPago === "Mixto" ? trMixto : undefined}
+          />
         )}
       </div>
 
@@ -482,6 +520,14 @@ function Productos() {
                   >
                     💳 Tarjeta
                   </button>
+                  <button 
+                    onClick={() => setMetodoPago("Mixto")} 
+                    className={`flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                      metodoPago === "Mixto" ? "bg-white text-indigo-600 shadow-xl shadow-slate-200" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    🔄 Mixto
+                  </button>
                 </div>
               </div>
 
@@ -514,6 +560,50 @@ function Productos() {
                 </div>
               )}
 
+              {metodoPago === "Mixto" && (
+                <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
+                  <div className="flex gap-4">
+                      <div className="flex-1 space-y-2">
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Efectivo 💵</label>
+                          <input 
+                              type="number" 
+                              value={pagoEfectivoMixto} 
+                              onChange={(e) => setPagoEfectivoMixto(e.target.value)} 
+                              placeholder="Monto $..." 
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-600 outline-none font-black text-slate-900 transition-all"
+                          />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Apps / Bco 💳</label>
+                          <input 
+                              type="number" 
+                              value={pagoTransferenciaMixto} 
+                              onChange={(e) => setPagoTransferenciaMixto(e.target.value)} 
+                              placeholder="Monto $..." 
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-600 outline-none font-black text-slate-900 transition-all"
+                          />
+                      </div>
+                  </div>
+                  
+                  {(() => {
+                      const dif = sumMixto - granTotal;
+                      return (
+                        <div className={`p-4 rounded-2xl font-bold text-center border animate-in zoom-in duration-300 ${
+                            dif === 0 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"
+                        }`}>
+                            <span className="text-[10px] uppercase block mb-1">Monto Mixto Consolidado</span>
+                            <span className="text-2xl">{formatCOP(sumMixto)}</span>
+                            {dif !== 0 && (
+                                <span className="block mt-1 text-xs opacity-70">
+                                    {dif > 0 ? `Sobran: ${formatCOP(dif)} (Revisa la digitación)` : `Faltan: ${formatCOP(Math.abs(dif))}`}
+                                </span>
+                            )}
+                        </div>
+                      )
+                  })()}
+                </div>
+              )}
+
               <div className="flex gap-4 pt-4">
                 <button 
                   onClick={() => setShowCheckout(false)} 
@@ -523,7 +613,7 @@ function Productos() {
                 </button>
                 <button 
                   onClick={confirmarVenta}
-                  disabled={isProcessing || (metodoPago === "Efectivo" && cashPaga < granTotal)}
+                  disabled={isProcessing || (metodoPago === "Efectivo" && cashPaga < granTotal) || (metodoPago === "Mixto" && sumMixto !== granTotal)}
                   className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {isProcessing ? (
@@ -566,6 +656,9 @@ function Productos() {
                   setVentaExitosa(false); 
                   setShowCheckout(false); 
                   setPagoCliente(""); 
+                  setPagoEfectivoMixto("");
+                  setPagoTransferenciaMixto("");
+                  setMetodoPago("Efectivo");
                   setFacturaIdImpresion(null);
                   if (tabs.length > 1) {
                     const newTabs = tabs.filter((t: any) => t.id !== activeTabId);

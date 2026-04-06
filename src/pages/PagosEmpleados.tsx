@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
 
@@ -39,14 +40,16 @@ function PagosEmpleados() {
     fetchNomina();
   }, [mes, anio]);
 
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef });
+
   useEffect(() => {
     if (ticketData) {
       setTimeout(() => {
-        window.print();
-        setTicketData(null);
-      }, 300);
+        reactToPrintFn();
+      }, 200);
     }
-  }, [ticketData]);
+  }, [ticketData, reactToPrintFn]);
 
   const handlePagar = async (empleado: any) => {
     if (!window.confirm(`¿Confirmar pago a ${empleado.nombre} por ${formatCOP(empleado.total_a_pagar)}?`)) return;
@@ -201,57 +204,58 @@ function PagosEmpleados() {
         </div>
       </div>
 
-      {/* PRINT SLIP: hidden per definition */}
-      {ticketData && (
-        <div className="print-only p-10 text-black font-mono leading-tight space-y-6">
-            <div className="text-center space-y-2">
-                <h2 className="text-xl font-bold uppercase">Soporte de Pago</h2>
-                <div className="py-2 border-y border-dashed border-black my-4 text-xs font-bold uppercase">
-                    Liquidación {ticketData.mesLabel} {ticketData.anio}
-                </div>
-                <p className="text-[10px] uppercase font-bold opacity-70">Fecha: {new Date().toLocaleString()}</p>
-            </div>
+      <div style={{ display: 'none' }}>
+        {ticketData && (
+          <div ref={contentRef} className="w-[80mm] max-w-[300px] p-4 bg-white text-black font-sans box-border" style={{ margin: '0 auto' }}>
+              <div className="text-center space-y-2 mb-3">
+                  <h2 className="text-lg font-bold uppercase">Soporte de Pago</h2>
+                  <div className="py-2 border-y border-dashed border-black my-2 text-xs font-bold uppercase">
+                      Liquidación {ticketData.mesLabel} {ticketData.anio}
+                  </div>
+                  <p className="text-[10px] uppercase font-bold opacity-70">Fecha: {new Date().toLocaleString()}</p>
+              </div>
 
-            <div className="text-[12px] space-y-2 border-b border-dashed border-black pb-6">
-                <p><strong>Colaborador:</strong> {ticketData.nombre}</p>
-                <p><strong>Documento:</strong> {ticketData.documento || '—'}</p>
-            </div>
+              <div className="text-xs space-y-1 border-b border-dashed border-black pb-3 mb-3">
+                  <p><strong>Colaborador:</strong> {ticketData.nombre}</p>
+                  <p><strong>Documento:</strong> {ticketData.documento || '—'}</p>
+              </div>
 
-            <table className="w-full text-xs">
-                <thead>
-                    <tr className="border-b border-black">
-                        <th className="py-2 text-left uppercase">Concepto</th>
-                        <th className="py-2 text-right uppercase">Valor</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-black/10">
-                    <tr>
-                        <td className="py-3 uppercase font-medium">Salario Base Contractual</td>
-                        <td className="py-3 text-right font-bold">{formatCOP(ticketData.salario_base)}</td>
-                    </tr>
-                    <tr>
-                        <td className="py-3 uppercase font-medium">Bonificación Comisiones ({ticketData.porcentaje_comision}%)</td>
-                        <td className="py-3 text-right font-bold text-emerald-700">+{formatCOP(ticketData.comisiones)}</td>
-                    </tr>
-                </tbody>
-            </table>
+              <table className="w-full text-xs mb-3">
+                  <thead>
+                      <tr className="border-b border-black">
+                          <th className="py-1 text-left uppercase">Concepto</th>
+                          <th className="py-1 text-right uppercase">Valor</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr className="border-b border-dashed border-gray-300">
+                          <td className="py-2 font-medium">Salario Base (<span className="uppercase">Contractual</span>)</td>
+                          <td className="py-2 text-right font-bold">{formatCOP(ticketData.salario_base)}</td>
+                      </tr>
+                      <tr className="border-b border-dashed border-gray-300">
+                          <td className="py-2 font-medium">Comisiones ({ticketData.porcentaje_comision}%)</td>
+                          <td className="py-2 text-right font-bold text-emerald-700">+{formatCOP(ticketData.comisiones)}</td>
+                      </tr>
+                  </tbody>
+              </table>
 
-            <div className="pt-6 border-t-2 border-black space-y-4">
-                <div className="flex justify-between font-black text-xl">
-                    <span>NETO PAGADO:</span>
-                    <span>{formatCOP(ticketData.total_a_pagar)}</span>
-                </div>
-                
-                <div className="pt-16 flex flex-col items-center gap-2">
-                    <div className="w-64 border-t border-black"></div>
-                    <p className="text-[10px] font-bold uppercase">Firma de Conformidad</p>
-                    <p className="text-[10px] uppercase font-black">{ticketData.nombre}</p>
-                </div>
-            </div>
+              <div className="pt-2 border-t border-black space-y-4">
+                  <div className="flex justify-between font-bold text-sm mt-2">
+                      <span>NETO PAGADO:</span>
+                      <span>{formatCOP(ticketData.total_a_pagar)}</span>
+                  </div>
+                  
+                  <div className="pt-10 flex flex-col items-center gap-1">
+                      <div className="w-[80%] border-t border-black mb-1"></div>
+                      <p className="text-[9px] font-bold uppercase">Firma de Conformidad</p>
+                      <p className="text-[9px] uppercase font-black">{ticketData.nombre}</p>
+                  </div>
+              </div>
 
-            <p className="text-center text-[8px] pt-10 opacity-50 uppercase tracking-widest italic">Documento generado por RedCograf ERP</p>
-        </div>
-      )}
+              <p className="text-center text-[8px] pt-6 opacity-50 uppercase tracking-widest italic">Documento generado por ERP</p>
+          </div>
+        )}
+      </div>
 
     </div>
   );

@@ -21,12 +21,15 @@ function Reportes() {
     setEndDate(todayLocal);
   };
 
-  const categoriasTienda = [
-    "Perfumería", "Detalles", "Joyería", "Mecato", "Tecnología", "Papelería", "Maquinas-impresionlaser", "Otra"
-  ];
+  const [categoriasTienda, setCategoriasTienda] = useState<string[]>([]);
 
   useEffect(() => {
     API.get("/cajeros").then(res => setCajeros(res.data)).catch(console.error);
+    API.get("/productos").then(res => {
+      const dbProducts = res.data;
+      const uniqueCats = Array.from(new Set(dbProducts.map((p: any) => p.categoria))).filter(Boolean);
+      setCategoriasTienda(uniqueCats as string[]);
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -101,17 +104,31 @@ function Reportes() {
       ) : (
         <div className="space-y-12">
           
-          {/* Main Metric Card */}
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-10 rounded-[40px] shadow-2xl shadow-indigo-200 text-white relative overflow-hidden group">
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="space-y-2 text-center md:text-left">
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Recaudación Total (Filtro Actual)</span>
-                <div className="text-6xl font-black tracking-tighter">{formatCOP(data.general.total_ingresos)}</div>
-                <p className="text-indigo-100 font-medium text-lg italic opacity-80">Rendimiento consolidado según los parámetros seleccionados.</p>
+          {/* Main Metric Cards */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-10 rounded-[40px] shadow-2xl shadow-indigo-200 text-white relative overflow-hidden group border border-indigo-400">
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="space-y-2 text-center md:text-left">
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Recaudación Total (Filtro Actual)</span>
+                  <div className="text-5xl font-black tracking-tighter">{formatCOP(data.general.total_ingresos)}</div>
+                  <p className="text-indigo-100 font-medium text-sm italic opacity-90">Rendimiento consolidado según los parámetros seleccionados.</p>
+                </div>
+                <div className="w-24 h-24 bg-white/10 backdrop-blur-2xl rounded-full flex items-center justify-center text-4xl group-hover:scale-110 transition-transform duration-700 border border-white/20">💎</div>
               </div>
-              <div className="w-32 h-32 bg-white/10 backdrop-blur-2xl rounded-full flex items-center justify-center text-5xl group-hover:scale-110 transition-transform duration-700 border border-white/20">💎</div>
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
             </div>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-10 rounded-[40px] shadow-2xl shadow-emerald-200 text-white relative overflow-hidden group border border-emerald-400">
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="space-y-2 text-center md:text-left">
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Utilidad Total (Ganancia Neta)</span>
+                  <div className="text-5xl font-black tracking-tighter">{formatCOP(data.general.total_utilidad_global || 0)}</div>
+                  <p className="text-emerald-100 font-medium text-sm italic opacity-90">Diferencia exacta entre la recaudación menos el costo de la mercancía.</p>
+                </div>
+                <div className="w-24 h-24 bg-white/10 backdrop-blur-2xl rounded-full flex items-center justify-center text-4xl group-hover:scale-110 transition-transform duration-700 border border-white/20">📈</div>
+              </div>
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+            </div>
           </div>
 
           {/* Chart Section */}
@@ -191,6 +208,7 @@ function Reportes() {
                     <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                       <th className="pb-4 pl-2">Cajero</th>
                       <th className="pb-4 text-center">Tks</th>
+                      <th className="pb-4 text-center font-black text-emerald-600">Utilidad</th>
                       <th className="pb-4 text-right pr-2">Total Recaudado</th>
                     </tr>
                   </thead>
@@ -212,6 +230,9 @@ function Reportes() {
                           </td>
                           <td className="py-5 text-center">
                             <span className="font-black text-slate-400">{c.cantidad_facturas}</span>
+                          </td>
+                          <td className="py-5 text-center">
+                            <span className="font-black text-emerald-600 tracking-tighter">{formatCOP(c.total_utilidad || 0)}</span>
                           </td>
                           <td className="py-5 text-right pr-2">
                             <div className="font-black text-slate-900">{formatCOP(c.dinero_recaudado)}</div>

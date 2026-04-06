@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
+import PrintReceipt from "../components/PrintReceipt";
 
 interface Producto {
   id: number;
@@ -43,6 +45,12 @@ export default function Separados() {
 
   const [cajeros, setCajeros] = useState<any[]>([]);
   const [cajeroId, setCajeroId] = useState("");
+
+  const facturaContentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFactura = useReactToPrint({ contentRef: facturaContentRef });
+
+  const separadoContentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintSeparado = useReactToPrint({ contentRef: separadoContentRef });
 
   useEffect(() => {
     fetchSeparados();
@@ -141,7 +149,7 @@ export default function Separados() {
               },
               detalles: resVentas.data
             });
-            setTimeout(() => window.print(), 500);
+            setTimeout(() => reactToPrintFactura(), 200);
           })
           .catch(console.error);
       }
@@ -166,8 +174,8 @@ export default function Separados() {
   const handlePrintSeparado = () => {
     setSeparadoPrintData({separado: viewSeparado, abonos: viewAbonos});
     setTimeout(() => {
-      window.print();
-    }, 500);
+      reactToPrintSeparado();
+    }, 200);
   };
 
   const filteredSeparados = separados.filter(s => {
@@ -459,94 +467,38 @@ export default function Separados() {
         )}
       </div>
 
-      {/* PRINT TICKET: hidden per definition */}
-      {facturaPrintData && (
-        <div className="print-only p-8 text-black font-mono leading-tight space-y-4">
-            <div className="text-center space-y-1">
-                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
-                <p className="text-[10px] uppercase font-bold tracking-widest mt-4">Comprobante de Entrega</p>
-                <div className="py-2 border-y border-dashed border-black my-4 text-sm font-bold uppercase">Factura No. {facturaPrintData.cabecera.id}</div>
-            </div>
-            
-            <table className="w-full text-xs">
-                 <tbody>
-                    {facturaPrintData.detalles.map((d: any, i: number) => (
-                        <tr key={i}>
-                            <td className="py-1 align-top">{d.cantidad}x</td>
-                            <td className="py-1 uppercase font-bold text-left">{d.nombre}</td>
-                            <td className="text-right py-1 align-top font-bold">{formatCOP(d.cantidad * d.precio_unitario)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+      <div style={{ display: 'none' }}>
+        {facturaPrintData && (
+          <PrintReceipt
+            ref={facturaContentRef}
+            empresa={empresa}
+            numero={facturaPrintData.cabecera.id}
+            fecha={facturaPrintData.cabecera.fecha}
+            cliente={facturaPrintData.cabecera.cliente}
+            cajero={facturaPrintData.cabecera.cajero}
+            metodoPago="Efectivo"
+            items={facturaPrintData.detalles}
+            total={facturaPrintData.cabecera.total}
+          />
+        )}
 
-            <div className="pt-4 border-t border-dashed border-black space-y-2">
-                <div className="flex justify-between font-bold text-lg">
-                    <span>LIQUIDADO:</span>
-                    <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
-                </div>
-                <div className="text-[10px] space-y-1 mt-6">
-                    <p><strong>Cajero:</strong> {facturaPrintData.cabecera.cajero}</p>
-                    <p><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente}</p>
-                </div>
-                <p className="text-center text-[10px] pt-8 opacity-50 italic uppercase">Gracias por confiar en nosotros</p>
-            </div>
-        </div>
-      )}
-
-      {separadoPrintData && (
-        <div className="print-only p-8 text-black font-mono leading-tight space-y-6">
-            <div className="text-center">
-                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
-                <p className="text-sm">NIT: {empresa.nit || "—"}</p>
-                <div className="bg-black text-white p-2 mt-4 text-sm font-bold uppercase tracking-widest">Estado de Separado #{separadoPrintData.separado.id}</div>
-            </div>
-
-            <div className="text-[11px] space-y-1 border-b border-dashed border-black pb-4">
-                <p><strong>Cliente:</strong> {separadoPrintData.separado.cliente_nombre}</p>
-                <p><strong>Documento:</strong> {separadoPrintData.separado.cliente_documento}</p>
-                <p><strong>Fecha Inicio:</strong> {new Date(separadoPrintData.separado.fecha_creacion).toLocaleString()}</p>
-            </div>
-
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest">Detalle Lote Retenido:</p>
-                <table className="w-full text-[10px]">
-                    <tbody>
-                        {(() => {
-                            const items = typeof separadoPrintData.separado.detalles_json === 'string' ? JSON.parse(separadoPrintData.separado.detalles_json) : separadoPrintData.separado.detalles_json;
-                            return items.map((itm: any, idx: number) => (
-                                <tr key={idx} className="border-b border-slate-100">
-                                    <td className="py-1">x{itm.qty || itm.cantidad}</td>
-                                    <td className="py-1 uppercase">{itm.nombre}</td>
-                                    <td className="py-1 text-right font-black">{formatCOP(itm.precio_venta * (itm.qty || itm.cantidad))}</td>
-                                </tr>
-                            ));
-                        })()}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="pt-4 border-t border-dashed border-black space-y-3">
-                <div className="flex justify-between text-xs">
-                    <span>VALOR TOTAL:</span>
-                    <span className="font-bold">{formatCOP(separadoPrintData.separado.total)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-emerald-700">
-                    <span>TOTAL ABONADO:</span>
-                    <span className="font-bold">+{formatCOP(parseFloat(separadoPrintData.separado.total) - parseFloat(separadoPrintData.separado.saldo_pendiente))}</span>
-                </div>
-                <div className="flex justify-between font-black text-lg border-t-2 border-black pt-2">
-                    <span>SALDO PENDIENTE:</span>
-                    <span>{formatCOP(separadoPrintData.separado.saldo_pendiente)}</span>
-                </div>
-            </div>
-
-            <div className="text-center text-[9px] pt-10 opacity-60">
-                Guarde este recibo para futuros abonos o retiro de mercancía.
-                <p className="mt-2 font-bold uppercase tracking-widest">¡Gracias por su compra!</p>
-            </div>
-        </div>
-      )}
+        {separadoPrintData && (
+          <PrintReceipt
+            ref={separadoContentRef}
+            empresa={empresa}
+            numero={`SEP-${separadoPrintData.separado.id}`}
+            fecha={separadoPrintData.separado.fecha_creacion}
+            cliente={separadoPrintData.separado.cliente_nombre}
+            cajero={cajeros.find(c => c.id == separadoPrintData.separado.cajero_id)?.nombre || undefined}
+            items={typeof separadoPrintData.separado.detalles_json === 'string' ? JSON.parse(separadoPrintData.separado.detalles_json) : separadoPrintData.separado.detalles_json}
+            total={parseFloat(separadoPrintData.separado.total)}
+            isSeparado={true}
+            totalAbonado={parseFloat(separadoPrintData.separado.total) - parseFloat(separadoPrintData.separado.saldo_pendiente)}
+            saldoPendiente={parseFloat(separadoPrintData.separado.saldo_pendiente)}
+            historialPagos={separadoPrintData.abonos}
+          />
+        )}
+      </div>
 
     </div>
   );

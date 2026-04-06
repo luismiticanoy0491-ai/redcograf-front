@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
 import { formatCOP } from "../utils/format";
 import { FacturaVenta } from "../types";
+import PrintReceipt from "../components/PrintReceipt";
 
 function Facturas() {
   const [facturas, setFacturas] = useState<FacturaVenta[]>([]);
@@ -20,14 +22,19 @@ function Facturas() {
   // Estado para Imprimir
   const [facturaPrintData, setFacturaPrintData] = useState<{cabecera: FacturaVenta, detalles: any[]} | null>(null);
 
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef });
+
   useEffect(() => {
     if (facturaPrintData) {
       setTimeout(() => {
-        window.print();
-        setFacturaPrintData(null);
-      }, 300);
+        reactToPrintFn();
+        // Option to reset facturaPrintData here if needed, but react-to-print handles the dialog, 
+        // We can just leave it since the print dialog is async and we don't want to kill the ref too fast.
+        // Or delay the reset.
+      }, 100);
     }
-  }, [facturaPrintData]);
+  }, [facturaPrintData, reactToPrintFn]);
 
   const handleImprimirVenta = (f: FacturaVenta) => {
     API.get(`/ventas/${f.id}`)
@@ -263,56 +270,21 @@ function Facturas() {
         </div>
       )}
 
-      {/* PRINT TICKET (Hidden/Print only) */}
-      {facturaPrintData && (
-        <div className="print-only p-8 text-black font-mono leading-tight space-y-4">
-            <div className="text-center space-y-1">
-                <h2 className="text-xl font-bold uppercase">{empresa.nombre_empresa || "MI TIENDA"}</h2>
-                <p className="text-sm">NIT: {empresa.nit || "—"}</p>
-                <p className="text-[10px] uppercase font-bold tracking-widest mt-4">Comprobante de Ingreso</p>
-                <div className="py-2 border-y border-dashed border-black my-4 text-sm font-bold uppercase">Ticket No. {facturaPrintData.cabecera.id}</div>
-            </div>
-            
-            <table className="w-full text-xs">
-                <thead>
-                    <tr className="border-b border-dashed border-black">
-                        <th className="text-left py-1">Und</th>
-                        <th className="text-left py-1">Ítem</th>
-                        <th className="text-right py-1">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {facturaPrintData.detalles.map((d, i) => (
-                        <tr key={i}>
-                            <td className="py-1 align-top">{d.cantidad}</td>
-                            <td className="py-1">
-                                <div className="uppercase font-bold">{d.nombre}</div>
-                                {d.referencia && <div className="text-[9px]">REF: {d.referencia}</div>}
-                            </td>
-                            <td className="text-right py-1 align-top font-bold">{formatCOP(d.cantidad * d.precio_unitario)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            <div className="pt-4 border-t border-dashed border-black space-y-2">
-                <div className="flex justify-between font-bold text-lg">
-                    <span>TOTAL:</span>
-                    <span>{formatCOP(facturaPrintData.cabecera.total)}</span>
-                </div>
-                <div className="text-[10px] space-y-1 mt-6">
-                    <p><strong>Fecha:</strong> {new Date(facturaPrintData.cabecera.fecha).toLocaleString()}</p>
-                    <p><strong>Pago:</strong> {facturaPrintData.cabecera.metodo_pago}</p>
-                    <p><strong>Cajero:</strong> {facturaPrintData.cabecera.cajero || "Principal"}</p>
-                    <p><strong>Cliente:</strong> {facturaPrintData.cabecera.cliente || "Consumidor Final"}</p>
-                </div>
-                <div className="text-center text-[10px] pt-8 opacity-50 italic">
-                    {empresa.resolucion || "Exento de facturación según resolución DIAN."}
-                    <p className="mt-4 font-bold not-italic">¡GRACIAS POR SU PREFERENCIA!</p>
-                </div>
-            </div>
-        </div>
-      )}
+      <div style={{ display: 'none' }}>
+        {facturaPrintData && (
+          <PrintReceipt
+            ref={contentRef}
+            empresa={empresa}
+            numero={facturaPrintData.cabecera.id}
+            fecha={facturaPrintData.cabecera.fecha}
+            cliente={facturaPrintData.cabecera.cliente || "Consumidor Final"}
+            cajero={facturaPrintData.cabecera.cajero || "Principal"}
+            metodoPago={facturaPrintData.cabecera.metodo_pago}
+            items={facturaPrintData.detalles}
+            total={facturaPrintData.cabecera.total}
+          />
+        )}
+      </div>
 
     </div>
   );
