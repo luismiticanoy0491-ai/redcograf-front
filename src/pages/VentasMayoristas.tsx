@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
-import { formatCOP } from "../utils/format";
+import { formatCOP, formatDateTime } from "../utils/format";
 import PrintReceipt from "../components/PrintReceipt";
 
 function VentasMayoristas() {
@@ -65,6 +65,7 @@ function VentasMayoristas() {
   const [ventaExitosa, setVentaExitosa] = useState(false);
   const [scanError, setScanError] = useState(false);
   const [facturaIdImpresion, setFacturaIdImpresion] = useState<number | null>(null);
+  const [phoneWS, setPhoneWS] = useState("");
 
   // Tab Handlers
   const nuevaTab = () => {
@@ -86,10 +87,17 @@ function VentasMayoristas() {
 
   useEffect(() => {
     fetchInventory();
-    API.get("/cajeros").then(res => setCajeros(res.data)).catch(console.error);
+    API.get("/cajeros")
+      .then(res => {
+        setCajeros(res.data);
+        if (cajeroId && !res.data.find((c: any) => c.id.toString() === cajeroId)) {
+          setCajeroId("");
+        }
+      })
+      .catch(console.error);
     API.get("/clientes").then(res => setClientes(res.data)).catch(console.error);
     API.get("/empresa").then(res => setEmpresa(res.data)).catch(console.error);
-  }, []);
+  }, [cajeroId]);
 
   const fetchInventory = () => {
     API.get("/productos")
@@ -108,12 +116,39 @@ function VentasMayoristas() {
     (p.referencia && p.referencia.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const agregarAlCarrito = (producto: any) => {
-    const exist = carrito.find((x: any) => x.id === producto.id);
-    const newQty = exist ? exist.qty + 1 : 1;
+  // Global Stock Calculation Helper (across all wholesale tabs)
+  const getCommittedQty = (productoId: number) => {
+    return tabs.reduce((acc: number, tab: any) => {
+      const item = tab.carrito.find((x: any) => x.id === productoId);
+      return acc + (item ? item.qty : 0);
+    }, 0);
+  };
 
+  const agregarAlCarrito = (producto: any) => {
+    if (producto.es_servicio) {
+        const exist = carrito.find((x: any) => x.id === producto.id);
+        if (exist) {
+            setCarrito(carrito.map((x: any) => x.id === producto.id ? { ...exist, qty: exist.qty + 1 } : x));
+        } else {
+            setCarrito([...carrito, { ...producto, qty: 1, descuento: 30 }]);
+        }
+        return;
+    }
+
+    const currentCommitted = getCommittedQty(producto.id);
+    const available = producto.cantidad - currentCommitted;
+
+    // Validar bloqueo de stock
+    const isBlocked = (!empresa.permitir_venta_negativa || !producto.permitir_venta_negativa) && available <= 0;
+    
+    if (isBlocked) {
+      alert(`🚛 Bloqueo Mayorista: Stock insuficiente de "${producto.nombre}". Se han agotado las unidades disponibles en todos los lotes actuales.`);
+      return;
+    }
+
+    const exist = carrito.find((x: any) => x.id === producto.id);
     if (exist) {
-      setCarrito(carrito.map((x: any) => x.id === producto.id ? { ...exist, qty: newQty } : x));
+      setCarrito(carrito.map((x: any) => x.id === producto.id ? { ...exist, qty: exist.qty + 1 } : x));
     } else {
       setCarrito([...carrito, { ...producto, qty: 1, descuento: 30 }]);
     }
@@ -190,16 +225,20 @@ function VentasMayoristas() {
         efectivoEntregado: metodoPago === "Mixto" ? efMixto : cashPaga,
         transferenciaEntregada: metodoPago === "Mixto" ? trMixto : (metodoPago === "Tarjeta" ? granTotal : 0),
         vuelto: vuelto > 0 ? vuelto : 0,
-        cajeroId: parseInt(cajeroId),
-        clienteId: clienteId ? parseInt(clienteId) : 1,
+        cajeroId: cajeroId ? parseInt(cajeroId) : null,
+        clienteId: clienteId ? parseInt(clienteId) : null,
         total: granTotal
       });
       setFacturaIdImpresion(response.data.factura_id);
+      
+      const clientObj = clientes.find(c => c.id === parseInt(clienteId));
+      setPhoneWS(clientObj?.telefono?.replace(/\D/g, '') || "");
+
       setVentaExitosa(true);
       fetchInventory(); 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Error procesando despacho.");
+      alert(err.response?.data?.error || "Error procesando despacho.");
     } finally {
       setIsProcessing(false);
     }
@@ -212,75 +251,117 @@ function VentasMayoristas() {
     reactToPrintFn();
   };
 
+  const compartirWhatsApp = () => {
+    if (!facturaIdImpresion) return;
+    
+    let targetPhone = phoneWS.replace(/\D/g, '');
+    
+    if (!targetPhone || targetPhone === '0') {
+      const manualPhone = window.prompt("📱 Ingresa el número de WhatsApp (ej: 300...):");
+      if (!manualPhone) return;
+      targetPhone = manualPhone.replace(/\D/g, '');
+      setPhoneWS(targetPhone);
+    }
+    
+    enviarWS(targetPhone);
+  };
+
+  const enviarWS = (num: string) => {
+    const itemsStr = carrito.map((i: any) => `• ${i.nombre} (x${i.qty})`).join('\n');
+    const mensaje = `¡Hola! 👋\n📦 *Entrega Mayorista Confirmada.*\n\n🌿 Gracias por preferir nuestra factura digital de *${empresa.nombre_empresa || 'nuestra empresa'}*\n\n📑 *Lote # ${facturaIdImpresion}*\n💰 *Total:* ${formatCOP(granTotal)}\n\n🛒 *Resumen del Pedido:*\n${itemsStr}\n\n¡Muchas gracias por tu negocio! 🚀`;
+    
+    // Abrir en nueva pestaña directamente
+    const fullNum = num.startsWith('57') ? num : `57${num}`;
+    const waUrl = `https://api.whatsapp.com/send?phone=${fullNum}&text=${encodeURIComponent(mensaje)}`;
+    window.open(waUrl, '_blank');
+  };
+
   const clienteSeleccionado = clientes.find(c => c.id === parseInt(clienteId)) || { nombre: "Distribuidor Casual" };
   const cajeroSeleccionado = cajeros.find(c => c.id === parseInt(cajeroId)) || { nombre: "Cajero Principal" };
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] gap-6 overflow-hidden animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-120px)] gap-4 lg:gap-6 overflow-y-auto lg:overflow-hidden animate-in fade-in duration-500">
       
       {/* LEFT: Product Catalog */}
-      <div className="flex-1 flex flex-col bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden no-print">
-        <div className="p-6 border-b border-slate-100 space-y-4">
+      <div className="flex-1 flex flex-col bg-white rounded-2xl lg:rounded-3xl border border-slate-200 shadow-sm overflow-hidden no-print min-h-[400px]">
+        <div className="p-4 border-b border-slate-100 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h2 className="text-xl text-slate-900 tracking-tight flex items-center gap-2">
               <span className="text-sky-600">🚛</span> Distribución Mayorista
             </h2>
             <div className="flex gap-2">
-              <span className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-bold rounded-full border border-sky-100 flex items-center gap-1.5 uppercase tracking-widest">
-                <span className="w-1.5 h-1.5 bg-sky-600 rounded-full animate-pulse"></span>
-                Modo Mayorista Activo
+              <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 text-[9px] font-black rounded-full border border-sky-100 uppercase tracking-widest leading-none">
+                Modo Mayorista
               </span>
             </div>
           </div>
           <div className="relative group">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-sky-600 transition-colors">🔍</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-sky-600 transition-colors text-xs">🔍</span>
             <input 
               type="text" 
-              placeholder="Escanea SKU o localiza ítems para despacho..." 
+              placeholder="Escanea SKU o localiza ítems..." 
               value={search} 
               onChange={(e) => setSearch(e.target.value)} 
               onKeyDown={handleSearchKeyPress}
-              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all duration-300 font-medium ${
-                scanError ? 'border-red-500 ring-4 ring-red-50 bg-red-50' : 'border-slate-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-50 focus:bg-white '
+              className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl outline-none transition-all duration-300 font-bold text-xs ${
+                scanError ? 'border-red-500 ring-2 ring-red-50 bg-red-50' : 'border-slate-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-50 focus:bg-white '
               }`}
               autoFocus
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
           {loading ? (
              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <div className="w-10 h-10 border-4 border-sky-100 border-t-sky-600 rounded-full animate-spin"></div>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Sincronizando Almacén...</p>
+                <div className="w-8 h-8 border-3 border-sky-100 border-t-sky-600 rounded-full animate-spin"></div>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Sincronizando Almacén...</p>
              </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-              {filteredProducts.map(p => (
-                <button 
-                  key={p.id}
-                  onClick={() => agregarAlCarrito(p)}
-                  disabled={p.cantidad <= 0}
-                  className={`group relative flex flex-col p-4 bg-white rounded-2xl border border-slate-200 text-left transition-all duration-300 hover:shadow-xl hover:shadow-sky-100 hover:border-sky-200 hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:grayscale disabled:translate-y-0 disabled:shadow-none ${
-                    p.cantidad <= 0 ? 'bg-slate-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <div className="mb-3">
-                    <h3 className="text-sm font-bold text-slate-800 line-clamp-2 leading-tight min-h-[2.5rem]">{p.nombre}</h3>
-                    {p.referencia && <p className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-wider">{p.referencia}</p>}
-                  </div>
-                  <div className="mt-auto space-y-2">
-                    <div className="text-lg font-black text-sky-600">{formatCOP(p.precio_venta)}</div>
-                    <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${
-                      p.cantidad <= 0 ? 'bg-red-100 text-red-600' : 
-                      p.cantidad < 5 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      En Rack: {p.cantidad}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+              {filteredProducts.map(p => {
+                const committed = getCommittedQty(p.id);
+                const available = p.cantidad - committed;
+                const isOutOfStock = (!empresa.permitir_venta_negativa || !p.permitir_venta_negativa) && available <= 0 && !p.es_servicio;
+
+                return (
+                  <button 
+                    key={p.id}
+                    onClick={() => agregarAlCarrito(p)}
+                    disabled={isOutOfStock}
+                    title={isOutOfStock ? `Sin existencias de ${p.nombre}` : `Agregar ${p.nombre} al lote`}
+                    className={`group relative flex flex-col p-2.5 bg-white rounded-xl border border-slate-200 text-left transition-all duration-300 hover:shadow-lg hover:shadow-sky-100 hover:border-sky-200 active:scale-95 disabled:grayscale disabled:opacity-60 disabled:cursor-not-allowed ${
+                      isOutOfStock ? 'bg-slate-50 border-slate-100' : ''
+                    }`}
+                  >
+                    <div className="mb-2">
+                       <div className="flex justify-between items-start gap-1">
+                          <h3 className="text-[11px] text-slate-800 line-clamp-2 leading-tight min-h-[2rem] uppercase font-medium">{p.nombre}</h3>
+                          {isOutOfStock && (
+                            <span className="text-[8px] bg-sky-600 text-white px-1.5 py-0.5 rounded-md font-medium animate-pulse">AGOTADO</span>
+                          )}
+                       </div>
+                       {p.referencia && <p className="text-[9px] text-slate-400 mt-1 tracking-tighter font-mono">{p.referencia}</p>}
                     </div>
-                  </div>
-                  <div className="absolute right-3 bottom-12 text-2xl opacity-0 group-hover:opacity-100 transition-opacity translate-y-4 group-hover:translate-y-0 duration-300">📦</div>
-                </button>
-              ))}
+                    <div className="mt-auto space-y-1.5">
+                      <div className="text-base text-sky-600 font-medium leading-none">{formatCOP(p.precio_venta)}</div>
+                      <div className={`text-[9px] px-2 py-1 rounded-lg w-fit font-medium border ${
+                        available <= 0 && !p.es_servicio ? 'bg-red-50 text-red-500 border-red-100' : 
+                        available < 5 && !p.es_servicio ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-500 border-slate-100'
+                      }`}>
+                        {p.es_servicio ? '⚡ SERVICIO' : `🚛 DSIP: ${Math.max(0, available)}`}
+                      </div>
+                    </div>
+
+                    {/* Hover Decoration */}
+                    {!isOutOfStock && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <div className="w-6 h-6 bg-sky-600 text-white rounded-full flex items-center justify-center text-xs shadow-lg">+</div>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -300,31 +381,31 @@ function VentasMayoristas() {
         </div>
 
         {/* Tab System (no-print) */}
-        <div className="p-3 no-print border-b border-slate-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-black text-slate-900 tracking-tight text-sm flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-sky-600 rounded-full"></span> Lote de Distribución
+        <div className="p-2.5 no-print border-b border-slate-100">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h3 className="font-black text-slate-900 tracking-tight text-[10px] uppercase flex items-center gap-1.5">
+              <span className="w-1 h-3 bg-sky-600 rounded-full"></span> Lotes de Distribución
             </h3>
-            <button onClick={nuevaTab} className="px-2 py-1 bg-sky-50 text-sky-600 text-xs rounded-lg hover:bg-sky-100 transition-colors font-bold" title="Nueva Cuenta">
-              + Nuevo Lote
+            <button onClick={nuevaTab} className="px-1.5 py-0.5 bg-sky-50 text-sky-600 text-[9px] rounded-md hover:bg-sky-100 transition-colors font-black uppercase tracking-tight" title="Nuevo Lote">
+              + Nuevo
             </button>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
             {tabs.map((tab: any, idx: number) => (
               <div 
                 key={tab.id} 
                 onClick={() => setActiveTabId(tab.id)}
-                className={`relative px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-all border flex items-center gap-2 ${
+                className={`relative px-3 py-1 rounded-lg text-[10px] font-black whitespace-nowrap cursor-pointer transition-all border flex items-center gap-1.5 ${
                   activeTabId === tab.id 
-                    ? "bg-sky-600 text-white border-sky-600 shadow-sm shadow-sky-100" 
-                    : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                    ? "bg-sky-600 text-white border-sky-600 shadow-md shadow-sky-100" 
+                    : "bg-white text-slate-400 border-slate-200 hover:bg-slate-50"
                 }`}
               >
-                Lote {idx + 1}
+                LOTE {idx + 1}
                 {tabs.length > 1 && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); cerrarTab(tab.id); }}
-                    className={`hover:bg-black/10 rounded-full w-4 h-4 flex items-center justify-center leading-none ${activeTabId === tab.id ? 'text-sky-200' : 'text-slate-400'}`}
+                    className={`hover:bg-black/10 rounded-full w-3.5 h-3.5 flex items-center justify-center leading-none ${activeTabId === tab.id ? 'text-sky-200' : 'text-slate-300'}`}
                   >
                     &times;
                   </button>
@@ -334,146 +415,175 @@ function VentasMayoristas() {
           </div>
         </div>
 
-        {/* Customer & Cashier Setup (no-print) */}
-        <div className="p-3 bg-slate-50/50 no-print space-y-2 border-b border-slate-100">
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest">Distribuidor / Cliente</label>
-              <div className="relative">
-                <input 
-                    list="lista-clientes-m"
-                    type="text" 
-                    placeholder="Vincular..." 
-                    value={clienteSearch} 
-                    onChange={e => {
-                        const val = e.target.value;
-                        setClienteSearch(val);
-                        if (val === "Distribuidor Casual") { setClienteId("1"); return; }
-                        const match = clientes.find(c => `${c.nombre} ${c.documento ? `(${c.documento})` : ''}` === val);
-                        if (match) setClienteId(match.id.toString());
-                        else if (val === "") setClienteId("1");
-                        else setClienteId("");
-                    }} 
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-sky-100 outline-none"
-                />
-                <datalist id="lista-clientes-m">
-                    <option value="Distribuidor Casual" />
-                    {clientes.filter(c => c.id !== 1).map(c => (
-                        <option key={c.id} value={`${c.nombre} ${c.documento ? `(${c.documento})` : ''}`} />
-                    ))}
-                </datalist>
-              </div>
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest">Responsable</label>
-              <select 
-                value={cajeroId} 
-                onChange={e => setCajeroId(e.target.value)} 
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-sky-100 outline-none appearance-none"
-              >
-                  <option value="">-- Cajero --</option>
-                  {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Cart Items Area */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+        {/* Cart Items Area (Now at the top) */}
+        <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1">
           {carrito.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center no-print">
-              <div className="text-4xl mb-3 opacity-20">📦</div>
-              <p className="text-slate-400 font-bold text-[11px] tracking-tight">Sin ítems en mayoreo.</p>
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center no-print">
+              <div className="text-4xl mb-3 opacity-10">📦</div>
+              <p className="text-slate-300 font-black text-[10px] uppercase tracking-widest leading-relaxed">Sin productos</p>
             </div>
           ) : (
-            carrito.map((item: any) => (
-              <div key={item.id} className={`group flex flex-col p-3 rounded-2xl border transition-all duration-300 ${
-                item.qty > item.cantidad ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100 hover:border-sky-100'
-              }`}>
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1 min-w-0 flex flex-wrap gap-x-2 gap-y-1">
-                    <h4 className="text-[11px] w-full font-bold text-slate-900 group-hover:text-sky-600 transition-colors leading-tight truncate">{item.nombre}</h4>
-                    <div className="flex items-center flex-wrap gap-1">
-                       <span className="text-sky-600 font-black text-[10px]">{formatCOP(item.precio_venta)} un.</span>
+            <div className="divide-y divide-slate-50">
+              {carrito.map((item: any) => (
+                <div key={item.id} className={`group flex items-center p-2 py-2.5 transition-all duration-300 ${
+                  !empresa.permitir_venta_negativa && !item.permitir_venta_negativa && item.qty > item.cantidad && !item.es_servicio ? 'bg-red-50/50' : 'bg-white hover:bg-sky-50/30'
+                }`}>
+                  <div className="flex-1 min-w-0 pr-3">
+                    <h4 className="text-[10px] text-slate-800 uppercase truncate leading-none mb-1">{item.nombre}</h4>
+                    <div className="flex items-center gap-1.5">
+                       <span className="text-[9px] text-sky-600">{formatCOP(item.precio_venta)}</span>
                        {item.descuento > 0 && (
-                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-emerald-200 flex items-center">
-                            Ahorras: {formatCOP(item.precio_venta * (item.descuento/100) * item.qty)}
-                          </span>
+                          <span className="text-[8px] text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">-{item.descuento}%</span>
                        )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => eliminarDelCarrito(item)} 
-                    className="no-print opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all font-black text-sm p-1"
-                  >
-                    🗑️
-                  </button>
-                </div>
-                
-                <div className="flex flex-wrap items-center justify-between mt-3 pt-3 border-t border-slate-50 gap-2">
-                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 no-print">
-                    <button onClick={() => removerDelCarrito(item)} className="w-6 h-6 rounded hover:bg-white text-slate-600 shadow-none hover:shadow-sm transition-all font-black text-xs">-</button>
-                    <span className="w-6 text-center font-black text-[11px] text-slate-900">{item.qty}</span>
-                    <button onClick={() => agregarAlCarrito(item)} className="w-6 h-6 rounded hover:bg-white text-slate-600 shadow-none hover:shadow-sm transition-all font-black text-xs">+</button>
-                  </div>
                   
-                  <div className="flex items-center gap-2 no-print">
-                    <div className="text-right">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Dcto (%)</span>
+                  <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-100">
+                      <button onClick={() => removerDelCarrito(item)} className="w-6 h-6 rounded-md hover:bg-white text-slate-500 transition-all text-xs">-</button>
+                      <span className="w-6 text-center text-[10px] text-slate-900">{item.qty}</span>
+                      <button 
+                        onClick={() => agregarAlCarrito(item)} 
+                        disabled={(!empresa.permitir_venta_negativa || !item.permitir_venta_negativa) && (item.cantidad - getCommittedQty(item.id)) <= 0 && !item.es_servicio}
+                        className="w-6 h-6 rounded-md hover:bg-white text-slate-500 transition-all text-xs disabled:opacity-30"
+                      >+</button>
+                    </div>
+
+                    <div className="flex flex-col items-end min-w-[35px] no-print">
                         <input 
                             type="number" 
-                            className="w-12 px-1.5 py-1 bg-white border border-slate-200 rounded text-center text-[10px] font-black text-sky-600 outline-none focus:ring-1 focus:ring-sky-100"
+                            className="w-10 px-0.5 py-0.5 bg-white border border-slate-100 rounded text-center text-[9px] text-sky-600 outline-none"
                             value={item.descuento || 0} 
                             onChange={e => handleDescuentoChange(item.id, e.target.value)} 
                         />
                     </div>
-                  </div>
 
-                  <div className="text-right ml-auto">
-                    <span className="text-[8px] text-slate-400 block font-bold uppercase tracking-widest mb-0.5">Subtotal Lote</span>
-                    <span className="text-xs font-black text-slate-900">
+                    <div className="text-right min-w-[80px]">
+                      <span className="text-[11px] text-slate-900 block leading-none">
                         {formatCOP((item.precio_venta * (1 - (item.descuento || 0)/100)) * item.qty)}
-                    </span>
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => eliminarDelCarrito(item)}
+                      className="w-5 h-5 flex items-center justify-center rounded-md bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all text-[10px] no-print"
+                      title="Quitar"
+                    >
+                      &times;
+                    </button>
                   </div>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
 
+        {/* Configuration Area (Moved to Bottom) */}
+        {carrito.length > 0 && (
+          <div className="px-3 py-1.5 bg-slate-50/50 border-t border-slate-100 no-print">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <input 
+                    type="text" 
+                    placeholder="🔍 Buscar distribuidor..." 
+                    value={clienteSearch} 
+                    onFocus={() => {
+                        // Sincronizar clientes al entrar al buscador para ver registros nuevos
+                        API.get("/clientes").then(res => setClientes(res.data)).catch(console.error);
+                    }}
+                    onChange={e => {
+                        const val = e.target.value;
+                        setClienteSearch(val);
+                        if (val === "") {
+                            setClienteId("1");
+                        } else {
+                            const match = clientes.find(c => `${c.nombre} ${c.documento ? `(${c.documento})` : ''}` === val);
+                            if (match) setClienteId(match.id.toString());
+                            else setClienteId("");
+                        }
+                    }} 
+                    className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all"
+                />
+                {clienteSearch && !clientes.find(c => `${c.nombre} ${c.documento ? `(${c.documento})` : ''}` === clienteSearch) && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-2xl max-h-40 overflow-y-auto">
+                        <div 
+                          onClick={() => { setClienteSearch("Distribuidor Casual"); setClienteId("1"); }}
+                          className="p-2 hover:bg-sky-50 cursor-pointer text-[10px] font-bold text-slate-400 border-b border-slate-50 uppercase"
+                        >
+                          👤 Distribuidor Casual
+                        </div>
+                        {clientes.filter(c => 
+                            c.id !== 1 && (
+                                c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || 
+                                (c.documento && c.documento.includes(clienteSearch))
+                            )
+                        ).map(c => (
+                            <div 
+                                key={c.id} 
+                                onClick={() => {
+                                    const label = `${c.nombre} ${c.documento ? `(${c.documento})` : ''}`;
+                                    setClienteSearch(label);
+                                    setClienteId(c.id.toString());
+                                }}
+                                className="p-2 hover:bg-sky-50 cursor-pointer text-[10px] font-bold text-slate-700 border-b border-slate-50 uppercase flex justify-between"
+                            >
+                                <span>{c.nombre}</span>
+                                <span className="opacity-50 text-[8px]">{c.documento}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <select 
+                  value={cajeroId} 
+                  onChange={e => setCajeroId(e.target.value)} 
+                  className={`w-full px-2 py-1 bg-white border rounded-lg text-[10px] font-bold focus:ring-2 focus:ring-sky-100 outline-none appearance-none transition-all duration-300 ${
+                    !cajeroId && carrito.length > 0 ? "border-amber-400 ring-4 ring-amber-50 bg-amber-50/20" : "border-slate-200"
+                  }`}
+                >
+                    <option value="">-- Cajero --</option>
+                    {cajeros.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Totals Section */}
         {carrito.length > 0 && (
-          <div className="p-4 bg-white border-t border-slate-100 space-y-3 shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)]">
-             <div className="space-y-2">
-                <div className="flex justify-between items-center text-slate-500 text-[9px] font-bold uppercase tracking-widest">
+          <div className="p-3 bg-white border-t border-slate-100 space-y-2 shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)]">
+             <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-slate-400 text-[8px] font-bold uppercase tracking-widest">
                     <span>Avalúo Comercial</span>
                     <span className="line-through">{formatCOP(subtotalOriginal)}</span>
                 </div>
-                <div className="flex justify-between items-center text-emerald-600 text-[9px] font-black uppercase tracking-widest">
+                <div className="flex justify-between items-center text-emerald-600 text-[8px] font-black uppercase tracking-widest">
                     <span>Incentivos Aplicados</span>
                     <span className="">-{formatCOP(valorDescuento)}</span>
                 </div>
              </div>
 
-            <div className="flex justify-between items-center bg-sky-50 p-3 rounded-xl border border-sky-100 mt-2">
+            <div className="flex justify-between items-center bg-sky-50 p-2 rounded-lg border border-sky-100">
                <div>
-                  <span className="text-[10px] font-black text-sky-500 uppercase tracking-widest">Total Mayorista</span>
-                  <p className="text-xl font-black text-sky-700 leading-none mt-1">{formatCOP(granTotal)}</p>
+                  <span className="text-[9px] text-sky-500 uppercase tracking-widest">Total Mayorista</span>
+                  <p className="text-lg text-sky-700 leading-none mt-0.5">{formatCOP(granTotal)}</p>
                </div>
             </div>
 
-            <div className="flex gap-2 no-print mt-2">
+            <div className="no-print">
               <button 
-                onClick={vaciarCarrito} 
-                className="flex-1 py-2 bg-slate-50 text-slate-500 font-bold rounded-xl hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-100 transition-all duration-300 flex items-center justify-center gap-1.5 text-xs"
+                onClick={() => {
+                  if (!cajeroId) {
+                    alert("⚠️ Auditoría Mayorista: Selecciona al responsable del despacho antes de finalizar.");
+                    return;
+                  }
+                  setShowCheckout(true);
+                }} 
+                className={`w-full py-4 rounded-xl shadow-xl transition-all duration-500 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] ${
+                  !cajeroId 
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
+                    : 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-sky-100 hover:shadow-sky-300 hover:-translate-y-1 active:scale-95'
+                }`}
               >
-                🗑 Vaciar
-              </button>
-              <button 
-                onClick={() => setShowCheckout(true)} 
-                className="flex-[2] py-2 bg-sky-600 text-white font-black rounded-xl shadow-md shadow-sky-100 hover:shadow-sky-300 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
-              >
-                Finalizar Compra
+                {cajeroId ? `FINALIZAR DESPACHO ${formatCOP(granTotal)}` : 'SELECCIONAR RESPONSABLE'}
               </button>
             </div>
           </div>
@@ -666,11 +776,31 @@ function VentasMayoristas() {
             )}
 
             <div className="space-y-4">
+              <div className="relative mb-6">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block text-center">WhatsApp del Distribuidor</label>
+                <div className="flex gap-2">
+                  <span className="flex items-center justify-center bg-slate-100 px-4 rounded-2xl text-slate-500 font-bold text-sm">+57</span>
+                  <input 
+                    type="text" 
+                    placeholder="Número de Celular"
+                    value={phoneWS}
+                    onChange={(e) => setPhoneWS(e.target.value)}
+                    className="flex-1 px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-sky-50 outline-none font-bold text-slate-700 text-center text-lg"
+                  />
+                </div>
+              </div>
+
               <button 
                 onClick={imprimirYTerminar}
                 className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-200 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3 group"
               >
                 <span className="text-xl group-hover:rotate-12 transition-transform">🖨️</span> Imprimir Recibo
+              </button>
+              <button 
+                onClick={compartirWhatsApp}
+                className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 hover:shadow-emerald-300 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3 group"
+              >
+                <span className="text-xl group-hover:scale-110 transition-transform">📱</span> Enviar WhatsApp
               </button>
               <button 
                 onClick={() => { 

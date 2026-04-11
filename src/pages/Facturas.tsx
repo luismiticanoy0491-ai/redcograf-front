@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import API from "../api/api";
-import { formatCOP } from "../utils/format";
+import { formatCOP, formatDateTime } from "../utils/format";
 import { FacturaVenta } from "../types";
 import PrintReceipt from "../components/PrintReceipt";
 
@@ -18,6 +18,7 @@ function Facturas() {
   // Modal de Detalles
   const [modalDetalle, setModalDetalle] = useState<number | null>(null);
   const [detallesFactura, setDetallesFactura] = useState<any[]>([]);
+  const [phoneWS, setPhoneWS] = useState("");
 
   // Estado para Imprimir
   const [facturaPrintData, setFacturaPrintData] = useState<{cabecera: FacturaVenta, detalles: any[]} | null>(null);
@@ -29,9 +30,6 @@ function Facturas() {
     if (facturaPrintData) {
       setTimeout(() => {
         reactToPrintFn();
-        // Option to reset facturaPrintData here if needed, but react-to-print handles the dialog, 
-        // We can just leave it since the print dialog is async and we don't want to kill the ref too fast.
-        // Or delay the reset.
       }, 100);
     }
   }, [facturaPrintData, reactToPrintFn]);
@@ -83,6 +81,10 @@ function Facturas() {
         setDetallesFactura(res.data);
         setModalDetalle(id);
         setMenuOpenId(null);
+        
+        // Cargar teléfono del cliente
+        const f = facturas.find(fac => fac.id === id);
+        setPhoneWS(f?.telefono?.replace(/\D/g, '') || "");
       })
       .catch(console.error);
   };
@@ -108,7 +110,7 @@ function Facturas() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-slate-200">
             <div className="space-y-1">
-                <h1 className="text-4xl font-black tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
+                <h1 className="text-4xl font-medium tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">
                     Historial de Ventas
                 </h1>
                 <p className="text-slate-500 font-medium text-lg italic">Control total de comprobantes y auditoría de transacciones.</p>
@@ -132,7 +134,7 @@ function Facturas() {
                     <button 
                         key={f}
                         onClick={() => setFiltroRapido(f)}
-                        className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                        className={`px-6 py-2 rounded-xl text-xs font-medium uppercase tracking-widest transition-all ${
                             filtroRapido === f ? 'bg-white text-indigo-600 shadow-md shadow-indigo-100' : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -140,7 +142,7 @@ function Facturas() {
                     </button>
                 ))}
             </div>
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 bg-white border border-slate-200 px-4 py-2 rounded-full">
+            <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400 bg-white border border-slate-200 px-4 py-2 rounded-full">
                 {facturasFiltradas.length} Facturas Registradas
             </div>
         </div>
@@ -159,16 +161,14 @@ function Facturas() {
                 </div>
             ) : (
                 facturasFiltradas.map((f: FacturaVenta) => {
-                    const dateObj = new Date(f.fecha);
-                    const dateStr = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
                     
                     return (
                         <div key={f.id} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative">
                             
                             <div className="flex justify-between items-start mb-6">
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase group-hover:text-indigo-600 transition-colors">{f.cliente || "Consumidor Final"}</h3>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fca #{(f.id).toString().padStart(6, '0')}</span>
+                                    <h3 className="text-lg font-medium text-slate-900 tracking-tight leading-tight uppercase group-hover:text-indigo-600 transition-colors">{f.cliente || "Consumidor Final"}</h3>
+                                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Fca #{(f.id).toString().padStart(6, '0')}</span>
                                 </div>
                                 <div className="relative">
                                     <button 
@@ -196,20 +196,20 @@ function Facturas() {
 
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center pb-4 border-b border-slate-50">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha de Emisión</span>
-                                    <span className="text-xs font-bold text-slate-600">{dateStr}</span>
+                                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-widest">Fecha de Emisión</span>
+                                    <span className="text-xs font-medium text-slate-600">{formatDateTime(f.fecha)}</span>
                                 </div>
                                 <div className="flex justify-between items-end">
                                     <div className="space-y-1">
-                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-medium uppercase tracking-tighter ${
                                             f.metodo_pago === 'Efectivo' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'
                                         }`}>
                                             {f.metodo_pago}
                                         </span>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Monto Total</span>
-                                        <span className="text-2xl font-black text-slate-900 tracking-tighter">{formatCOP(f.total)}</span>
+                                        <span className="text-[9px] font-medium text-slate-400 uppercase tracking-widest block mb-1">Monto Total</span>
+                                        <span className="text-2xl font-medium text-slate-900 tracking-tighter">{formatCOP(f.total)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -243,27 +243,72 @@ function Facturas() {
                     {detallesFactura.map((d, i) => (
                         <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
                             <div className="min-w-0">
-                                <h4 className="text-sm font-black text-slate-800 truncate uppercase">{d.nombre}</h4>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1">{d.cantidad} Unds x {formatCOP(d.precio_unitario)}</p>
+                                <h4 className="text-sm font-medium text-slate-800 truncate uppercase">{d.nombre}</h4>
+                                <p className="text-[10px] font-medium text-slate-400 mt-1">{d.cantidad} Unds x {formatCOP(d.precio_unitario)}</p>
                             </div>
                             <div className="text-right ml-4 shrink-0">
-                                <span className="text-sm font-black text-indigo-600">{formatCOP(d.cantidad * d.precio_unitario)}</span>
+                                <span className="text-sm font-medium text-indigo-600">{formatCOP(d.cantidad * d.precio_unitario)}</span>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <div className="mt-10 flex gap-4">
-                    <button 
-                        className="flex-[2] py-5 bg-slate-900 text-white font-black rounded-3xl shadow-xl hover:-translate-y-1 transition-all uppercase tracking-widest text-[10px]"
-                        onClick={() => {
-                        const f = facturas.find(fac => fac.id === modalDetalle);
-                        if (f) setFacturaPrintData({ cabecera: f, detalles: detallesFactura });
-                        }}
-                    >
-                        🖨️ Re-Imprimir Comprobante
-                    </button>
-                    <button onClick={() => setModalDetalle(null)} className="flex-1 py-5 bg-slate-100 text-slate-500 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px]">Cerrar</button>
+                <div className="mt-8 space-y-4">
+                    <div className="relative">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block text-center">WhatsApp del Cliente</label>
+                        <div className="flex gap-2">
+                           <span className="flex items-center justify-center bg-slate-100 px-4 rounded-2xl text-slate-500 font-bold text-xs">+57</span>
+                           <input 
+                             type="text" 
+                             placeholder="Número de celular..." 
+                             value={phoneWS}
+                             onChange={(e) => setPhoneWS(e.target.value)}
+                             className="flex-1 px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-emerald-50 outline-none font-bold text-slate-700 text-lg text-center"
+                           />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button 
+                            className="flex-1 py-5 bg-slate-900 text-white font-medium rounded-3xl shadow-xl hover:-translate-y-1 transition-all uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                            onClick={() => {
+                              const f = facturas.find(fac => fac.id === modalDetalle);
+                              if (f) setFacturaPrintData({ cabecera: f, detalles: detallesFactura });
+                            }}
+                        >
+                            🖨️ Re-Imprimir
+                        </button>
+                        <button 
+                            className="flex-1 py-5 bg-emerald-600 text-white font-medium rounded-3xl shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest"
+                            onClick={() => {
+                              const f = facturas.find(fac => fac.id === modalDetalle);
+                              if (!f) return;
+                              
+                              let targetPhone = phoneWS.replace(/\D/g, '');
+                              
+                              const launchWS = (num: string) => {
+                                const itemsText = detallesFactura.map(d => `• ${d.nombre} (x${d.cantidad})`).join('\n');
+                                const message = `¡Hola! 👋\n📄 *Factura Digital ${empresa.nombre_empresa || 'de nuestra tienda'}*\n\n*Comprobante # ${f.id}*\n💰 *Total:* ${formatCOP(f.total)}\n\n🛒 *Resumen:*\n${itemsText}\n\n¡Gracias por su compra! ✨`;
+                                const fullNum = num.startsWith('57') ? num : `57${num}`;
+                                window.open(`https://api.whatsapp.com/send?phone=${fullNum}&text=${encodeURIComponent(message)}`, '_blank');
+                              };
+
+                              if (!targetPhone || targetPhone === '0') {
+                                 const manualPhone = window.prompt("📱 Ingresa el número de WhatsApp (ej: 300...):");
+                                 if (manualPhone) {
+                                     targetPhone = manualPhone.replace(/\D/g, '');
+                                     setPhoneWS(targetPhone);
+                                     launchWS(targetPhone);
+                                 }
+                              } else {
+                                 launchWS(targetPhone);
+                              }
+                            }}
+                        >
+                            📱 Compartir
+                        </button>
+                    </div>
+                    <button onClick={() => setModalDetalle(null)} className="w-full py-5 bg-slate-100 text-slate-500 font-medium rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px]">Cerrar Auditoría</button>
                 </div>
             </div>
           </div>
@@ -282,6 +327,8 @@ function Facturas() {
             metodoPago={facturaPrintData.cabecera.metodo_pago}
             items={facturaPrintData.detalles}
             total={facturaPrintData.cabecera.total}
+            pagoEfectivoMixto={facturaPrintData.cabecera.metodo_pago === 'Mixto' ? facturaPrintData.cabecera.pago_efectivo : undefined}
+            pagoTransferenciaMixto={facturaPrintData.cabecera.metodo_pago === 'Mixto' ? facturaPrintData.cabecera.pago_transferencia : undefined}
           />
         )}
       </div>

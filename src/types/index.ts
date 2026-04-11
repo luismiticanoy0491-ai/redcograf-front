@@ -38,8 +38,11 @@ export interface FacturaVenta {
   fecha: string;
   total: number;
   metodo_pago: string;
+  pago_efectivo?: number;
+  pago_transferencia?: number;
   cajero: string;
   cliente: string;
+  telefono?: string;
   estado?: string;
 }
 

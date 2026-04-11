@@ -6,24 +6,66 @@ const SuperAdminSaaS = () => {
   const [pagos, setPagos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [config, setConfig] = useState({
+    wompi_public_key: '',
+    wompi_private_key: '',
+    wompi_integrity_secret: '',
+    wompi_event_secret: '',
+    precio_mes_centavos: 7000000,
+    precio_semestre_centavos: 37800000,
+    precio_anio_centavos: 67200000
+  });
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const [resEmpresas, resPagos, resConfig] = await Promise.all([
+        API.get('/suscripciones/superadmin/empresas'),
+        API.get('/suscripciones/superadmin/pagos'),
+        API.get('/suscripciones/superadmin/config')
+      ]);
+      setEmpresas(resEmpresas.data);
+      setPagos(resPagos.data);
+      if (resConfig.data) setConfig(resConfig.data);
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'No Autorizado o problema de conexión.');
+      setLoading(false);
+    }
+  };
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingConfig(true);
+    try {
+      await API.post('/suscripciones/superadmin/config', config);
+      alert('✅ Configuración de Plataforma guardada con éxito.');
+    } catch (err: any) {
+      alert('Error guardando configuración.');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resEmpresas, resPagos] = await Promise.all([
-          API.get('/suscripciones/superadmin/empresas'),
-          API.get('/suscripciones/superadmin/pagos')
-        ]);
-        setEmpresas(resEmpresas.data);
-        setPagos(resPagos.data);
-        setLoading(false);
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'No Autorizado o problema de conexión.');
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
+
+  const handleDeleteEmpresa = async (id: number, nombre: string) => {
+    if (!window.confirm(`⚠️ ¿ESTÁS SEGURO DE ELIMINAR A "${nombre.toUpperCase()}"?\n\nEsta acción es IRREVERSIBLE y borrará:\n- Todos sus productos e inventario.\n- Todas sus facturas de venta y compra.\n- Todos sus usuarios y configuraciones.\n- Todo rastro en la base de datos.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await API.delete(`/suscripciones/superadmin/empresas/${id}`);
+      alert('Empresa eliminada exitosamente y base de datos liberada.');
+      await fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Error al eliminar la empresa.');
+      setLoading(false);
+    }
+  };
 
   // Métricas Computadas
   const activas = empresas.filter(e => e.estado === 'Active').length;
@@ -99,6 +141,7 @@ const SuperAdminSaaS = () => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '3rem' }}>
+        
         {/* Tabla Comercios */}
         <div className="card" style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
           <h2 style={{ color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.5rem' }}>Directorio de Suscriptores</h2>
@@ -109,14 +152,16 @@ const SuperAdminSaaS = () => {
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>ID</th>
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Comercio</th>
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Contacto</th>
+                  <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Plan Seleccionado</th>
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Vencimiento</th>
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Estado SaaS</th>
                   <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>Total Pagado</th>
+                  <th style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {empresas.map(emp => (
-                  <tr key={emp.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
+                  <tr key={emp.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} className="table-row-hover">
                     <td style={{ padding: '1rem', color: '#64748b' }}>#{emp.id}</td>
                     <td style={{ padding: '1rem' }}>
                       <strong style={{ color: '#0f172a' }}>{emp.nombre_comercial}</strong>
@@ -124,6 +169,21 @@ const SuperAdminSaaS = () => {
                     </td>
                     <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#475569' }}>
                       {emp.telefono_contacto} <br/> {emp.correo_contacto}
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ 
+                        padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '900', display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        background: !emp.ultimo_plan_dias ? '#f1f5f9' : emp.ultimo_plan_dias === 30 ? '#eff6ff' : emp.ultimo_plan_dias === 180 ? '#f5f3ff' : '#fff7ed',
+                        color: !emp.ultimo_plan_dias ? '#64748b' : emp.ultimo_plan_dias === 30 ? '#2563eb' : emp.ultimo_plan_dias === 180 ? '#7c3aed' : '#ea580c',
+                        border: `1px solid ${!emp.ultimo_plan_dias ? '#e2e8f0' : emp.ultimo_plan_dias === 30 ? '#bfdbfe' : emp.ultimo_plan_dias === 180 ? '#ddd6fe' : '#fed7aa'}`
+                      }}>
+                         <span>{
+                           !emp.ultimo_plan_dias ? '🎁 TRIAL / GRATIS' : 
+                           emp.ultimo_plan_dias === 30 ? '📅 MENSUAL' : 
+                           emp.ultimo_plan_dias === 180 ? '⚡ SEMESTRAL' : 
+                           emp.ultimo_plan_dias === 365 ? '🏆 ANUAL' : `🕒 ${emp.ultimo_plan_dias} DÍAS`
+                         }</span>
+                      </div>
                     </td>
                     <td style={{ padding: '1rem', color: '#475569' }}>
                       {new Date(emp.fecha_vencimiento_suscripcion).toLocaleDateString()}
@@ -140,6 +200,20 @@ const SuperAdminSaaS = () => {
                     </td>
                     <td style={{ padding: '1rem', fontWeight: 'bold', color: '#059669', fontSize: '1.1rem' }}>
                       ${(Number(emp.total_recaudado) || 0).toLocaleString('es-CO')}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleDeleteEmpresa(emp.id, emp.nombre_comercial)}
+                        style={{ 
+                          background: '#fee2e2', color: '#ef4444', border: 'none', padding: '8px 12px', borderRadius: '8px', 
+                          cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => (e.currentTarget.style.background = '#fecaca')}
+                        onMouseOut={(e) => (e.currentTarget.style.background = '#fee2e2')}
+                        title="Eliminar Empresa Permanentemente"
+                      >
+                        🗑️ Borrar
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -188,6 +262,79 @@ const SuperAdminSaaS = () => {
               </table>
             </div>
           )}
+        </div>
+
+        {/* Configuración de Pasarela - MOVIDO AL FINAL */}
+        <div className="card" style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0' }}>
+           <h2 style={{ color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+             ⚙️ Configuración Maestra Wompi
+           </h2>
+           <form onSubmit={handleSaveConfig} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Llave Pública</label>
+                <input 
+                  type="text" 
+                  value={config.wompi_public_key} 
+                  onChange={(e) => setConfig({...config, wompi_public_key: e.target.value})} 
+                  placeholder="pub_test_..."
+                  style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Llave Privada</label>
+                <input 
+                  type="password" 
+                  value={config.wompi_private_key} 
+                  onChange={(e) => setConfig({...config, wompi_private_key: e.target.value})} 
+                  placeholder="prv_test_..."
+                  style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Secreto de Integridad</label>
+                <input 
+                  type="password" 
+                  value={config.wompi_integrity_secret} 
+                  onChange={(e) => setConfig({...config, wompi_integrity_secret: e.target.value})} 
+                  placeholder="integ_..."
+                  style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Secreto de Eventos</label>
+                <input 
+                  type="password" 
+                  value={config.wompi_event_secret} 
+                  onChange={(e) => setConfig({...config, wompi_event_secret: e.target.value})} 
+                  style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                />
+              </div>
+              
+              <div style={{ gridColumn: 'span 2', background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                   <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>PRECIO MES (CENTS)</label>
+                   <input type="number" value={config.precio_mes_centavos} onChange={(e) => setConfig({...config, precio_mes_centavos: parseInt(e.target.value)})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                 </div>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                   <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>PRECIO SEMESTRE (CENTS)</label>
+                   <input type="number" value={config.precio_semestre_centavos} onChange={(e) => setConfig({...config, precio_semestre_centavos: parseInt(e.target.value)})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                 </div>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                   <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>PRECIO AÑO (CENTS)</label>
+                   <input type="number" value={config.precio_anio_centavos} onChange={(e) => setConfig({...config, precio_anio_centavos: parseInt(e.target.value)})} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                 </div>
+              </div>
+
+              <div style={{ gridColumn: 'span 2', textAlign: 'right' }}>
+                <button 
+                  type="submit" 
+                  disabled={savingConfig}
+                  style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', opacity: savingConfig ? 0.5 : 1 }}
+                >
+                  {savingConfig ? 'Guardando...' : '💾 Guardar Cambios Globales'}
+                </button>
+              </div>
+           </form>
         </div>
       </div>
     </div>

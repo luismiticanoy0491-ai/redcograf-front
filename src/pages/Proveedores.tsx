@@ -11,6 +11,7 @@ function Proveedores() {
     correo: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProveedores();
@@ -29,19 +30,53 @@ function Proveedores() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    API.post("/proveedores", formData)
+
+    const apiCall = editingId 
+      ? API.put(`/proveedores/${editingId}`, formData)
+      : API.post("/proveedores", formData);
+
+    apiCall
       .then(() => {
+        alert(editingId ? "✅ Proveedor actualizado" : "✅ Proveedor registrado");
         setFormData({ nombre_comercial: "", nit: "", direccion: "", telefono: "", correo: "" });
+        setEditingId(null);
         fetchProveedores();
       })
       .catch(err => {
         console.error(err);
+        alert("Error procesando proveedor");
       })
       .finally(() => setIsLoading(false));
   };
 
+  const handleEdit = (p: any) => {
+    console.log("✏️ Cargando proveedor para edición:", p);
+    setEditingId(p.id);
+    setFormData({
+      nombre_comercial: p.nombre_comercial || "",
+      nit: p.nit || "",
+      direccion: p.direccion || "",
+      telefono: p.telefono || "",
+      correo: p.correo || ""
+    });
+  };
+
   const handleCancel = () => {
     setFormData({ nombre_comercial: "", nit: "", direccion: "", telefono: "", correo: "" });
+    setEditingId(null);
+  };
+
+  const handleDelete = (id: number) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este proveedor?")) return;
+    API.delete(`/proveedores/${id}`)
+      .then(() => {
+        alert("🗑️ Proveedor eliminado");
+        fetchProveedores();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error eliminando proveedor");
+      });
   };
 
   return (
@@ -64,7 +99,7 @@ function Proveedores() {
             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm sticky top-8 space-y-8">
                 <div className="space-y-2">
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">Directorio Logístico</span>
-                    <h3 className="text-2xl font-black text-slate-900 leading-none">Vinculación de Aliado</h3>
+                    <h3 className="text-2xl font-black text-slate-900 leading-none">{editingId ? "Actualizar Aliado" : "Vinculación de Aliado"}</h3>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -133,7 +168,28 @@ function Proveedores() {
                                     )}
                                 </div>
                             </div>
-                            <div className="absolute top-0 right-0 p-8 text-4xl opacity-0 group-hover:opacity-10 transition-opacity translate-x-4 group-hover:translate-x-0 group-hover:scale-150 duration-700 pointer-events-none">📦</div>
+                            <div className="absolute top-0 right-0 p-8 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-700 z-30">
+                                <button 
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEdit(p);
+                                  }} 
+                                  className="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-slate-900 hover:scale-110 active:scale-95 transition-all"
+                                  title="Editar Proveedor"
+                                >
+                                    ✏️
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(p.id);
+                                  }} 
+                                  className="w-10 h-10 flex items-center justify-center bg-rose-500 text-white rounded-xl shadow-lg hover:bg-slate-900 hover:scale-110 active:scale-95 transition-all"
+                                  title="Eliminar Proveedor"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
                         </div>
                     ))
                 )}
