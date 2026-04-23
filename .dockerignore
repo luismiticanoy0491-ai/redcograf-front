@@ -4,8 +4,6 @@ dist
 .env.local
 .git
 *.log
-src
-public
-*.ts
-*.tsx
-.vite
+.DS_Store
+.gitignore
+README.md
